@@ -1,4 +1,3 @@
-
 export interface Movie {
   id: number;
   title: string;
@@ -32,9 +31,8 @@ export const getGenres = async (): Promise<Genre[]> => {
 
 export const getMoviesByGenre = async (genreId: number): Promise<Movie[]> => {
   try {
-    // Fetch multiple pages to get more movies
     const movies: Movie[] = [];
-    const pagesToFetch = 6; // Increased from 3 to 6 pages
+    const pagesToFetch = 6;
     
     for (let page = 1; page <= pagesToFetch; page++) {
       const response = await fetch(
@@ -66,9 +64,44 @@ export const getMoviesByGenre = async (genreId: number): Promise<Movie[]> => {
 export const searchMovies = async (query: string): Promise<Movie[]> => {
   try {
     const allMovies: Movie[] = [];
-    const pagesToFetch = 5; // Increased from 1 to 5 pages
+    const pagesToFetch = 5;
     
-    // First try exact search on multiple pages
+    const isHangoverSearch = query.toLowerCase().includes("hangover") && 
+                             (query.toLowerCase().includes("the") || 
+                              query.toLowerCase() === "hangover");
+    
+    const hangoverFranchiseIds = [
+      18785,  // The Hangover (2009)
+      45243,  // The Hangover Part II (2011)
+      109439  // The Hangover Part III (2013)
+    ];
+    
+    if (isHangoverSearch) {
+      const hangoverResponse = await fetch(
+        `${BASE_URL}/search/movie?api_key=${API_KEY}&query=the%20hangover&language=en-US&page=1`
+      );
+      const hangoverData = await hangoverResponse.json();
+      
+      const hangoverMovies = hangoverData.results
+        .filter((movie: any) => hangoverFranchiseIds.includes(movie.id))
+        .map((movie: any) => ({
+          id: movie.id,
+          title: movie.title,
+          release_date: movie.release_date,
+          poster_path: movie.poster_path,
+          vote_average: movie.vote_average,
+          overview: movie.overview,
+          popularity: movie.popularity,
+          vote_count: movie.vote_count
+        }));
+      
+      allMovies.push(...hangoverMovies);
+      
+      if (allMovies.length > 0) {
+        return allMovies;
+      }
+    }
+    
     for (let page = 1; page <= pagesToFetch; page++) {
       const directResponse = await fetch(
         `${BASE_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(query)}&language=en-US&page=${page}`
@@ -91,19 +124,17 @@ export const searchMovies = async (query: string): Promise<Movie[]> => {
       }
     }
     
-    // If we don't have enough results, search more broadly
     if (allMovies.length < 10) {
-      // Try searching for words individually
       const words = query.split(' ');
       for (const word of words) {
-        if (word.length > 2) { // Only use words with at least 3 characters
+        if (word.length > 2) {
           const broadResponse = await fetch(
             `${BASE_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(word)}&language=en-US&page=1`
           );
           const broadData = await broadResponse.json();
           
           const additionalMovies = broadData.results
-            .filter((movie: any) => !allMovies.some(m => m.id === movie.id)) // Deduplicate
+            .filter((movie: any) => !allMovies.some(m => m.id === movie.id))
             .map((movie: any) => ({
               id: movie.id,
               title: movie.title,
@@ -119,7 +150,6 @@ export const searchMovies = async (query: string): Promise<Movie[]> => {
         }
       }
       
-      // Additional search for popular movies that might contain parts of the title
       const popularResponse = await fetch(
         `${BASE_URL}/movie/popular?api_key=${API_KEY}&language=en-US&page=1`
       );
@@ -127,13 +157,12 @@ export const searchMovies = async (query: string): Promise<Movie[]> => {
       
       const popularMovies = popularData.results
         .filter((movie: any) => {
-          // Check if any word from the query is in the movie title
           return words.some(word => 
             word.length > 2 && 
             movie.title.toLowerCase().includes(word.toLowerCase())
           );
         })
-        .filter((movie: any) => !allMovies.some(m => m.id === movie.id)) // Deduplicate
+        .filter((movie: any) => !allMovies.some(m => m.id === movie.id))
         .map((movie: any) => ({
           id: movie.id,
           title: movie.title,
@@ -148,40 +177,75 @@ export const searchMovies = async (query: string): Promise<Movie[]> => {
       allMovies.push(...popularMovies);
     }
     
-    // Get all hangover movies specifically if the query contains "hangover"
     if (query.toLowerCase().includes("hangover")) {
       const hangoverResponse = await fetch(
         `${BASE_URL}/search/movie?api_key=${API_KEY}&query=hangover&language=en-US&page=1`
       );
       const hangoverData = await hangoverResponse.json();
       
-      const hangoverMovies = hangoverData.results
-        .filter((movie: any) => !allMovies.some(m => m.id === movie.id)) // Deduplicate
-        .map((movie: any) => ({
-          id: movie.id,
-          title: movie.title,
-          release_date: movie.release_date,
-          poster_path: movie.poster_path,
-          vote_average: movie.vote_average,
-          overview: movie.overview,
-          popularity: movie.popularity,
-          vote_count: movie.vote_count
-        }));
+      const hangoverMovies = hangoverData.results.filter((movie: any) => 
+        movie.title.toLowerCase().includes("hangover")
+      );
       
-      // Add hangover movies at the beginning for relevance
-      allMovies.unshift(...hangoverMovies);
+      if (isHangoverSearch) {
+        const officialHangoverMovies = hangoverMovies.filter((movie: any) => 
+          hangoverFranchiseIds.includes(movie.id)
+        );
+        
+        const nonHangoverMovies = allMovies.filter(movie => 
+          !movie.title.toLowerCase().includes("hangover")
+        );
+        
+        return [
+          ...officialHangoverMovies.map((movie: any) => ({
+            id: movie.id,
+            title: movie.title,
+            release_date: movie.release_date,
+            poster_path: movie.poster_path,
+            vote_average: movie.vote_average,
+            overview: movie.overview,
+            popularity: movie.popularity,
+            vote_count: movie.vote_count
+          })),
+          ...nonHangoverMovies
+        ];
+      } else {
+        const newHangoverMovies = hangoverMovies
+          .filter((movie: any) => !allMovies.some(m => m.id === movie.id))
+          .map((movie: any) => ({
+            id: movie.id,
+            title: movie.title,
+            release_date: movie.release_date,
+            poster_path: movie.poster_path,
+            vote_average: movie.vote_average,
+            overview: movie.overview,
+            popularity: movie.popularity,
+            vote_count: movie.vote_count
+          }));
+        
+        allMovies.push(...newHangoverMovies);
+      }
+      
+      allMovies = allMovies.filter((movie, index, self) =>
+        index === self.findIndex((m) => m.id === movie.id)
+      ).sort((a, b) => {
+        const aHasExactMatch = a.title.toLowerCase().includes(query.toLowerCase());
+        const bHasExactMatch = b.title.toLowerCase().includes(query.toLowerCase());
+        
+        if (aHasExactMatch && !bHasExactMatch) return -1;
+        if (!aHasExactMatch && bHasExactMatch) return 1;
+        
+        return b.popularity - a.popularity;
+      });
     }
     
-    // Sort by relevance and popularity
     return allMovies.sort((a, b) => {
-      // Check if title contains exact query for higher relevance
       const aHasExactMatch = a.title.toLowerCase().includes(query.toLowerCase());
       const bHasExactMatch = b.title.toLowerCase().includes(query.toLowerCase());
       
       if (aHasExactMatch && !bHasExactMatch) return -1;
       if (!aHasExactMatch && bHasExactMatch) return 1;
       
-      // Otherwise sort by popularity
       return b.popularity - a.popularity;
     });
   } catch (error) {
@@ -219,65 +283,67 @@ export const getMovieDetails = async (movieId: number): Promise<Movie | null> =>
 
 export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
   try {
-    // Get movie details first to enhance the recommendations
     const movieDetails = await getMovieDetails(movieId);
     
     if (!movieDetails) {
       throw new Error("Could not fetch movie details");
     }
     
-    // Extract the primary genre(s) from the selected movie
     const primaryGenres = movieDetails.genres?.map(g => g.id) || [];
     if (primaryGenres.length === 0) {
       throw new Error("No genres found for the movie");
     }
     
-    // Check if the title suggests it's part of a series (e.g., has a number at the end)
     const isSeries = /\d+$|\s\d+$|\s\d+:/.test(movieDetails.title);
     let seriesTitle = "";
     if (isSeries) {
-      // Extract the base series name (e.g., "The Hangover" from "The Hangover 2")
       seriesTitle = movieDetails.title.replace(/\s*\d+(:.*)?$|\s+\d+$/, '').trim();
     } else {
-      // Try to extract the main title without subtitles (e.g., "The Hangover" from "The Hangover: Part II")
       const colonIndex = movieDetails.title.indexOf(':');
       seriesTitle = colonIndex > 0 ? movieDetails.title.substring(0, colonIndex).trim() : movieDetails.title;
     }
     
-    // 1. Get movies from the same franchise/series - more aggressive search for series
+    const isHangoverMovie = movieDetails.title.toLowerCase().includes("hangover");
+    
     let franchiseMovies: any[] = [];
     if (seriesTitle) {
-      // Use multiple search terms to catch more franchise movies
-      const searchTerms = [seriesTitle];
-      
-      // If the series has common alternative names, add them
-      if (seriesTitle.toLowerCase().includes("hangover")) {
-        searchTerms.push("hangover");
-      }
-      
-      for (const term of searchTerms) {
+      if (isHangoverMovie) {
+        const hangoverFranchiseIds = [
+          18785,  // The Hangover (2009)
+          45243,  // The Hangover Part II (2011)
+          109439  // The Hangover Part III (2013)
+        ];
+        
+        for (const franchiseId of hangoverFranchiseIds) {
+          if (franchiseId === movieId) continue;
+          
+          try {
+            const movieResponse = await fetch(
+              `${BASE_URL}/movie/${franchiseId}?api_key=${API_KEY}&language=en-US`
+            );
+            const movieData = await movieResponse.json();
+            
+            if (movieData && movieData.id) {
+              franchiseMovies.push(movieData);
+            }
+          } catch (err) {
+            console.error(`Error fetching hangover movie ${franchiseId}:`, err);
+          }
+        }
+      } else {
         const franchiseResponse = await fetch(
-          `${BASE_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(term)}&language=en-US&page=1`
+          `${BASE_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(seriesTitle)}&language=en-US&page=1`
         );
         const franchiseData = await franchiseResponse.json();
         
-        // Filter for movies that are likely part of the same franchise
-        const franchiseMatches = franchiseData.results.filter((movie: any) => {
+        franchiseMovies = franchiseData.results.filter((movie: any) => {
           return movie.id !== movieId && 
-                 (movie.title.toLowerCase().includes(term.toLowerCase()) || 
-                  term.toLowerCase().includes(movie.title.toLowerCase()));
+                 (movie.title.toLowerCase().includes(seriesTitle.toLowerCase()) || 
+                  seriesTitle.toLowerCase().includes(movie.title.toLowerCase()));
         });
-        
-        franchiseMovies.push(...franchiseMatches);
       }
-      
-      // Eliminate duplicates
-      franchiseMovies = franchiseMovies.filter((movie, index, self) =>
-        index === self.findIndex((m) => m.id === movie.id)
-      );
     }
     
-    // 2. Get pure similar movies (3 pages for more results)
     const similarMovies: any[] = [];
     for (let page = 1; page <= 3; page++) {
       const similarResponse = await fetch(
@@ -287,7 +353,6 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
       similarMovies.push(...similarData.results);
     }
     
-    // 3. Get recommendations (3 pages for more results)
     const recommendMovies: any[] = [];
     for (let page = 1; page <= 3; page++) {
       const recommendResponse = await fetch(
@@ -297,10 +362,9 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
       recommendMovies.push(...recommendData.results);
     }
     
-    // 4. Get top movies from the primary genre with appropriate filters (multiple pages)
     const genreMovies: any[] = [];
-    for (const genreId of primaryGenres.slice(0, 3)) { // Use up to 3 primary genres
-      for (let page = 1; page <= 2; page++) { // Get 2 pages per genre
+    for (const genreId of primaryGenres.slice(0, 3)) {
+      for (let page = 1; page <= 2; page++) {
         const genreResponse = await fetch(
           `${BASE_URL}/discover/movie?api_key=${API_KEY}&with_genres=${genreId}&sort_by=popularity.desc&vote_count.gte=100&language=en-US&page=${page}`
         );
@@ -309,7 +373,6 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
       }
     }
     
-    // 5. Do a keyword search with the title to find thematically similar movies
     let keywordMovies: any[] = [];
     if (seriesTitle) {
       const keywordResponse = await fetch(
@@ -318,10 +381,8 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
       const keywordData = await keywordResponse.json();
       
       if (keywordData.results && keywordData.results.length > 0) {
-        // Take the top 5 keywords (increased from 3)
         const topKeywords = keywordData.results.slice(0, 5).map((k: any) => k.id);
         
-        // Get movies with those keywords
         for (const keywordId of topKeywords) {
           const keywordMovieResponse = await fetch(
             `${BASE_URL}/discover/movie?api_key=${API_KEY}&with_keywords=${keywordId}&sort_by=popularity.desc&vote_count.gte=50&language=en-US&page=1`
@@ -332,40 +393,28 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
       }
     }
     
-    // 6. Special case for Hangover franchise - ensure we get all Hangover movies
-    if (movieDetails.title.toLowerCase().includes("hangover")) {
+    if (isHangoverMovie) {
       const hangoverResponse = await fetch(
         `${BASE_URL}/search/movie?api_key=${API_KEY}&query=hangover&language=en-US&page=1`
       );
       const hangoverData = await hangoverResponse.json();
       
-      // Add all hangover movies to franchise list
       const hangoverMovies = hangoverData.results.filter((movie: any) => 
         movie.id !== movieId && movie.title.toLowerCase().includes("hangover")
       );
       
       franchiseMovies.push(...hangoverMovies);
       
-      // Eliminate duplicates in franchise movies
       franchiseMovies = franchiseMovies.filter((movie, index, self) =>
         index === self.findIndex((m) => m.id === movie.id)
       );
     }
     
-    // Weight and combine all the sources
-    // Prioritize movies in the following order:
-    // 1. Same franchise/series (highest)
-    // 2. Genre match AND high similarity
-    // 3. Same primary genre with high popularity
-    // 4. Keywords match
-    // 5. Recommendations and similar (base level)
-    
-    // Combine all results for scoring
-    let allCandidateMovies = [
+    const allCandidateMovies = [
       ...franchiseMovies.map(movie => ({ 
         ...movie, 
         source: 'franchise', 
-        baseScore: 100  // High base score for franchise movies
+        baseScore: 100 
       })),
       ...similarMovies.map(movie => ({ 
         ...movie, 
@@ -389,7 +438,6 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
       }))
     ];
     
-    // Remove duplicates by preferring the higher scored source
     const uniqueMoviesMap = new Map();
     allCandidateMovies.forEach(movie => {
       const existing = uniqueMoviesMap.get(movie.id);
@@ -398,12 +446,10 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
       }
     });
     
-    let uniqueMovies = Array.from(uniqueMoviesMap.values());
+    const uniqueMovies = Array.from(uniqueMoviesMap.values());
     
-    // Filter out the original movie
     uniqueMovies = uniqueMovies.filter(movie => movie.id !== movieId);
     
-    // Get the genres of each candidate movie and calculate genre overlap
     const movieGenresPromises = uniqueMovies.map(async (movie) => {
       try {
         const detailsResponse = await fetch(
@@ -411,10 +457,9 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
         );
         const details = await detailsResponse.json();
         
-        // Calculate genre overlap score
         const movieGenreIds = details.genres?.map((g: any) => g.id) || [];
         const genreOverlap = movieGenreIds.filter((id: number) => primaryGenres.includes(id)).length;
-        const genreScore = genreOverlap / Math.max(1, primaryGenres.length) * 50; // Max 50 points for genre match
+        const genreScore = genreOverlap / Math.max(1, primaryGenres.length) * 50;
         
         return {
           ...movie,
@@ -422,7 +467,6 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
           genres: details.genres || []
         };
       } catch (error) {
-        // If we can't get details, just return the movie with default values
         return {
           ...movie,
           genreScore: 0,
@@ -431,43 +475,32 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
       }
     });
     
-    // Wait for all genre details to be retrieved
-    let moviesWithGenres = await Promise.all(movieGenresPromises);
+    const moviesWithGenres = await Promise.all(movieGenresPromises);
     
-    // Final scoring algorithm (complex scoring based on multiple factors)
-    const scoredMovies = moviesWithGenres.map(movie => {
-      // Start with the base score from the source
+    let scoredMovies = moviesWithGenres.map(movie => {
       let finalScore = movie.baseScore || 0;
       
-      // Add genre score
       finalScore += movie.genreScore || 0;
       
-      // Add vote average score (0-20 points)
       finalScore += Math.min(20, (movie.vote_average || 0) * 2);
       
-      // Add popularity score (0-20 points)
       finalScore += Math.min(20, (movie.popularity || 0) / 50);
       
-      // Add vote count factor (0-10 points for having many votes)
       finalScore += Math.min(10, Math.log10((movie.vote_count || 0) + 1));
       
-      // Add recency bonus (0-15 points for newer movies)
       const releaseYear = movie.release_date ? new Date(movie.release_date).getFullYear() : 0;
       const currentYear = new Date().getFullYear();
       const yearDiff = Math.max(0, Math.min(30, currentYear - releaseYear));
-      finalScore += Math.max(0, 15 - yearDiff * 0.5); // Newer movies get up to 15 points
+      finalScore += Math.max(0, 15 - yearDiff * 0.5);
       
-      // Add title similarity bonus for franchise movies
       if (movie.title && seriesTitle && 
           (movie.title.toLowerCase().includes(seriesTitle.toLowerCase()) || 
            seriesTitle.toLowerCase().includes(movie.title.toLowerCase()))) {
-        finalScore += 40; // Significant bonus for title similarity
+        finalScore += 40;
       }
       
-      // Special bonus for hangover movies
-      if (movieDetails.title.toLowerCase().includes("hangover") && 
-          movie.title.toLowerCase().includes("hangover")) {
-        finalScore += 60; // Even higher bonus for hangover movies when searching for hangover
+      if (isHangoverMovie && movie.title.toLowerCase().includes("hangover")) {
+        finalScore += 60;
       }
       
       return {
@@ -476,12 +509,21 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
       };
     });
     
-    // Sort by final score
-    const sortedMovies = scoredMovies.sort((a, b) => b.finalScore - a.finalScore);
+    scoredMovies = scoredMovies.map(movie => {
+      if (isHangoverMovie) {
+        const hangoverFranchiseIds = [18785, 45243, 109439];
+        if (hangoverFranchiseIds.includes(movie.id)) {
+          return {
+            ...movie,
+            finalScore: 1000 + (movie.finalScore || 0),
+            source: 'franchise'
+          };
+        }
+      }
+      return movie;
+    });
     
-    // Map the results (increased to 40 movies for more variety)
-    // Build the final movie objects with all needed data
-    return sortedMovies.slice(0, 40).map((movie: any) => ({
+    return scoredMovies.sort((a, b) => b.finalScore - a.finalScore).slice(0, 40).map((movie: any) => ({
       id: movie.id,
       title: movie.title,
       release_date: movie.release_date,
@@ -502,9 +544,8 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
 
 export const getTopIMDBMovies = async (): Promise<Movie[]> => {
   try {
-    // Fetch multiple pages to get more movies
     const movies: Movie[] = [];
-    const pagesToFetch = 6; // Increased from 3 to 6 pages
+    const pagesToFetch = 6;
     
     for (let page = 1; page <= pagesToFetch; page++) {
       const response = await fetch(
@@ -577,7 +618,6 @@ export const getFallbackMovies = (genre: string): Movie[] => {
     }
   ];
   
-  // If genre is "Search" (direct search), provide different movies
   if (genre === 'Search') {
     return [
       {
@@ -623,7 +663,6 @@ export const getFallbackMovies = (genre: string): Movie[] => {
     ];
   }
   
-  // If genre is Top IMDB, provide high-rated movies
   if (genre === 'Top') {
     return [
       {
