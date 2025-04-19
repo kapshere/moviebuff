@@ -882,3 +882,36 @@ export const getPersonalizedRecommendations = async (
     return [];
   }
 };
+
+// Add the missing getTopIMDBMovies function
+export const getTopIMDBMovies = async (): Promise<Movie[]> => {
+  try {
+    // Fetch movies with high IMDB ratings
+    const response = await fetch(
+      `${BASE_URL}/discover/movie?api_key=${API_KEY}&language=en-US&sort_by=vote_average.desc&vote_count.gte=5000&page=1&vote_average.gte=8`
+    );
+    
+    if (!response.ok) {
+      console.error('Failed to fetch top IMDB movies:', response.status);
+      return [];
+    }
+    
+    const data = await response.json();
+    
+    // Process and return the movies
+    return data.results.map((movie: any) => ({
+      id: movie.id,
+      title: movie.title,
+      release_date: movie.release_date || '',
+      poster_path: movie.poster_path,
+      backdrop_path: movie.backdrop_path,
+      vote_average: movie.vote_average || 0,
+      overview: movie.overview || '',
+      popularity: movie.popularity || 0,
+      vote_count: movie.vote_count || 0
+    }));
+  } catch (error) {
+    console.error('Error fetching top IMDB movies:', error);
+    return [];
+  }
+};
