@@ -4,9 +4,14 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 
 const genres = [
-  'Mystery', 'Comedy', 'Cyberpunk', 'Drama',
-  'Thriller', 'Romance', 'Sci-Fi', 'Horror',
-  'Animation', 'Documentary'
+  // Popular Genres
+  'Action', 'Comedy', 'Drama', 'Horror', 'Romance', 'Thriller',
+  // Specific Genres
+  'Adventure', 'Animation', 'Biography', 'Crime', 'Documentary', 'Family',
+  // Niche Genres
+  'Fantasy', 'Film-Noir', 'History', 'Musical', 'Mystery', 'Sci-Fi',
+  // Special Categories
+  'Sport', 'War', 'Western', 'Cyberpunk', 'Superhero', 'Psychological'
 ];
 
 export const GenreGrid = ({ onGenreSelect }: { onGenreSelect: (genre: string) => void }) => {
