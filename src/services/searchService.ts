@@ -73,6 +73,91 @@ export const searchMovies = async (query: string): Promise<Movie[]> => {
     
     results.push(...movieResults);
 
+    // Check for franchise/series movies
+    // First look for movies that might be part of a franchise
+    const potentialFranchiseMovies = results.filter(movie => {
+      const title = movie.title.toLowerCase();
+      // Look for movies with numbers, or common franchise indicators
+      return /\d/.test(title) || title.includes("part") || title.includes("chapter") || 
+        title.includes("volume") || title.includes("episode");
+    });
+
+    // If we found potential franchise movies, try to find the original
+    if (potentialFranchiseMovies.length > 0) {
+      // For each potential franchise movie, search for related movies
+      await Promise.all(potentialFranchiseMovies.map(async (movie) => {
+        try {
+          // Attempt to get franchise info
+          const franchiseResponse = await fetch(
+            `${BASE_URL}/movie/${movie.id}/similar?api_key=${API_KEY}&language=en-US&page=1`
+          );
+          
+          if (!franchiseResponse.ok) {
+            return;
+          }
+          
+          const franchiseData = await franchiseResponse.json();
+          const franchiseMovies = franchiseData.results.map((m: any) => ({
+            id: m.id,
+            title: m.title,
+            release_date: m.release_date || '',
+            poster_path: m.poster_path,
+            vote_average: m.vote_average || 0,
+            overview: m.overview || '',
+            popularity: m.popularity || 0,
+            source: 'franchise'
+          }));
+          
+          // Add any franchise movies we found
+          results.push(...franchiseMovies);
+        } catch (error) {
+          console.error('Error fetching franchise movies:', error);
+        }
+      }));
+
+      // Deduplicate results
+      results = Array.from(new Set(results.map(m => m.id)))
+        .map(id => results.find(m => m.id === id)!);
+    }
+
+    // Special handling for "The Hangover" or similar franchise searches
+    const lowerQuery = query.toLowerCase();
+    const isHangoverSearch = lowerQuery.includes("hangover") || lowerQuery.includes("hangover part");
+    
+    if (isHangoverSearch) {
+      try {
+        // Get the actual Hangover movies by searching specifically
+        const hangoverResponse = await fetch(
+          `${BASE_URL}/search/movie?api_key=${API_KEY}&query=hangover&language=en-US&page=1`
+        );
+        
+        if (hangoverResponse.ok) {
+          const hangoverData = await hangoverResponse.json();
+          const hangoverMovies = hangoverData.results
+            .filter((m: any) => m.title.toLowerCase().includes("hangover"))
+            .map((m: any) => ({
+              id: m.id,
+              title: m.title,
+              release_date: m.release_date || '',
+              poster_path: m.poster_path,
+              vote_average: m.vote_average || 0,
+              overview: m.overview || '',
+              popularity: m.popularity || 0,
+              source: 'franchise'
+            }));
+          
+          // Prioritize Hangover movies in results
+          const existingIds = new Set(hangoverMovies.map(m => m.id));
+          results = [
+            ...hangoverMovies,
+            ...results.filter(m => !existingIds.has(m.id))
+          ];
+        }
+      } catch (error) {
+        console.error('Error fetching Hangover movies:', error);
+      }
+    }
+
     // Special handling for "Us" movie (2019)
     if (query.toLowerCase() === "us") {
       const usMovie = results.find(movie => 

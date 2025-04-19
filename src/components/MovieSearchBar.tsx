@@ -27,7 +27,6 @@ export const MovieSearchBar = ({ onSearch, placeholder = "Search movies..." }: M
     enabled: searchTerm.length >= 2,
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
     retry: 2, // Retry failed requests twice
-    // Using onSettled instead of onError
     meta: {
       onError: () => {
         toast.error("Couldn't connect to the movie database. Using sample data instead.");
@@ -49,6 +48,11 @@ export const MovieSearchBar = ({ onSearch, placeholder = "Search movies..." }: M
   // Function to format release year
   const formatReleaseYear = (releaseDate: string) => {
     return releaseDate ? ` (${new Date(releaseDate).getFullYear()})` : '';
+  };
+
+  // Check if a movie is part of a franchise
+  const isFranchiseMovie = (movie: any) => {
+    return movie.source === 'franchise';
   };
 
   return (
@@ -86,7 +90,12 @@ export const MovieSearchBar = ({ onSearch, placeholder = "Search movies..." }: M
                     }}
                   />
                   <div className="flex flex-col flex-1">
-                    <span className="font-medium">{movie.title}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{movie.title}</span>
+                      {isFranchiseMovie(movie) && (
+                        <span className="text-xs px-2 py-0.5 bg-amber-500 text-black rounded-full">Series</span>
+                      )}
+                    </div>
                     <div className="flex flex-col text-xs text-[#666666]">
                       {movie.release_date && (
                         <span>{formatReleaseYear(movie.release_date)}</span>
