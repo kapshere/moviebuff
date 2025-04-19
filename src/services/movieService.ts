@@ -11,6 +11,8 @@ export interface Movie {
   popularity?: number;
   tagline?: string;
   backdrop_path?: string | null;
+  director?: string;
+  director_id?: number;
 }
 
 export interface Genre {
@@ -63,48 +65,85 @@ export const getMoviesByGenre = async (genreId: number): Promise<Movie[]> => {
 
 export const searchMovies = async (query: string): Promise<Movie[]> => {
   try {
-    const exactResponse = await fetch(
-      `${BASE_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(query)}&language=en-US&page=1`
+    const searchResponse = await fetch(
+      `${BASE_URL}/search/multi?api_key=${API_KEY}&query=${encodeURIComponent(query)}&language=en-US&page=1`
     );
-    const exactData = await exactResponse.json();
+    const searchData = await searchResponse.json();
     
-    let allMovies = exactData.results.map((movie: any) => ({
-      id: movie.id,
-      title: movie.title,
-      release_date: movie.release_date,
-      poster_path: movie.poster_path,
-      vote_average: movie.vote_average,
-      overview: movie.overview,
-      popularity: movie.popularity,
-      vote_count: movie.vote_count
-    }));
+    let results: Movie[] = [];
+    
+    // Handle person (director) search
+    const personResults = searchData.results.filter((item: any) => item.media_type === 'person');
+    if (personResults.length > 0) {
+      for (const person of personResults.slice(0, 2)) {
+        const directorMovies = await fetch(
+          `${BASE_URL}/person/${person.id}/movie_credits?api_key=${API_KEY}&language=en-US`
+        );
+        const directorData = await directorMovies.json();
+        
+        const directedMovies = directorData.crew
+          .filter((credit: any) => credit.job === 'Director')
+          .map((movie: any) => ({
+            id: movie.id,
+            title: movie.title,
+            release_date: movie.release_date,
+            poster_path: movie.poster_path,
+            vote_average: movie.vote_average,
+            overview: movie.overview,
+            director: person.name,
+            director_id: person.id
+          }));
+        
+        results.push(...directedMovies);
+      }
+    }
+    
+    // Handle movie search
+    const movieResults = searchData.results
+      .filter((item: any) => item.media_type === 'movie')
+      .map((movie: any) => ({
+        id: movie.id,
+        title: movie.title,
+        release_date: movie.release_date,
+        poster_path: movie.poster_path,
+        vote_average: movie.vote_average,
+        overview: movie.overview
+      }));
+    
+    results.push(...movieResults);
 
     // Special handling for "Us" movie (2019)
     if (query.toLowerCase() === "us") {
-      const usMovie = allMovies.find(movie => 
+      const usMovie = results.find(movie => 
         movie.title === "Us" && 
         movie.release_date?.startsWith("2019")
       );
       
       if (usMovie) {
-        // Prioritize "Us" (2019) by putting it first
-        allMovies = [
+        results = [
           usMovie,
-          ...allMovies.filter(movie => movie.id !== usMovie.id)
+          ...results.filter(movie => movie.id !== usMovie.id)
         ];
       }
     }
 
-    // Sort results by exact match and popularity
-    return allMovies.sort((a, b) => {
-      const aExactMatch = a.title.toLowerCase() === query.toLowerCase();
-      const bExactMatch = b.title.toLowerCase() === query.toLowerCase();
-      
-      if (aExactMatch && !bExactMatch) return -1;
-      if (!aExactMatch && bExactMatch) return 1;
-      
-      return b.popularity - a.popularity;
-    });
+    // Get director information for each movie
+    for (const movie of results) {
+      if (!movie.director) {
+        const creditsResponse = await fetch(
+          `${BASE_URL}/movie/${movie.id}/credits?api_key=${API_KEY}&language=en-US`
+        );
+        const creditsData = await creditsResponse.json();
+        
+        const director = creditsData.crew.find((person: any) => person.job === 'Director');
+        if (director) {
+          movie.director = director.name;
+          movie.director_id = director.id;
+        }
+      }
+    }
+
+    return results.slice(0, 8); // Limit to 8 results
   } catch (error) {
     console.error('Error searching movies:', error);
     return [];
@@ -140,259 +179,57 @@ export const getMovieDetails = async (movieId: number): Promise<Movie | null> =>
 
 export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
   try {
-    const movieDetails = await getMovieDetails(movieId);
+    // Get movie credits to find the director
+    const creditsResponse = await fetch(
+      `${BASE_URL}/movie/${movieId}/credits?api_key=${API_KEY}&language=en-US`
+    );
+    const creditsData = await creditsResponse.json();
     
-    if (!movieDetails) {
-      throw new Error("Could not fetch movie details");
-    }
+    const director = creditsData.crew.find((person: any) => person.job === 'Director');
+    let directorMovies: Movie[] = [];
     
-    const primaryGenres = movieDetails.genres?.map(g => g.id) || [];
-    if (primaryGenres.length === 0) {
-      throw new Error("No genres found for the movie");
-    }
-    
-    const isSeries = /\d+$|\s\d+$|\s\d+:/.test(movieDetails.title);
-    let seriesTitle = "";
-    if (isSeries) {
-      seriesTitle = movieDetails.title.replace(/\s*\d+(:.*)?$|\s+\d+$/, '').trim();
-    } else {
-      const colonIndex = movieDetails.title.indexOf(':');
-      seriesTitle = colonIndex > 0 ? movieDetails.title.substring(0, colonIndex).trim() : movieDetails.title;
-    }
-    
-    const isHangoverMovie = movieDetails.title.toLowerCase().includes("hangover");
-    
-    let franchiseMovies: any[] = [];
-    if (seriesTitle) {
-      if (isHangoverMovie) {
-        const hangoverFranchiseIds = [
-          18785,  // The Hangover (2009)
-          45243,  // The Hangover Part II (2011)
-          109439  // The Hangover Part III (2013)
-        ];
-        
-        for (const franchiseId of hangoverFranchiseIds) {
-          if (franchiseId === movieId) continue;
-          
-          try {
-            const movieResponse = await fetch(
-              `${BASE_URL}/movie/${franchiseId}?api_key=${API_KEY}&language=en-US`
-            );
-            const movieData = await movieResponse.json();
-            
-            if (movieData && movieData.id) {
-              franchiseMovies.push(movieData);
-            }
-          } catch (err) {
-            console.error(`Error fetching hangover movie ${franchiseId}:`, err);
-          }
-        }
-      } else {
-        const franchiseResponse = await fetch(
-          `${BASE_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(seriesTitle)}&language=en-US&page=1`
-        );
-        const franchiseData = await franchiseResponse.json();
-        
-        franchiseMovies = franchiseData.results.filter((movie: any) => {
-          return movie.id !== movieId && 
-                 (movie.title.toLowerCase().includes(seriesTitle.toLowerCase()) || 
-                  seriesTitle.toLowerCase().includes(movie.title.toLowerCase()));
-        });
-      }
-    }
-    
-    const similarMovies: any[] = [];
-    for (let page = 1; page <= 3; page++) {
-      const similarResponse = await fetch(
-        `${BASE_URL}/movie/${movieId}/similar?api_key=${API_KEY}&language=en-US&page=${page}`
+    if (director) {
+      // Get other movies by the same director
+      const directorResponse = await fetch(
+        `${BASE_URL}/person/${director.id}/movie_credits?api_key=${API_KEY}&language=en-US`
       );
-      const similarData = await similarResponse.json();
-      similarMovies.push(...similarData.results);
+      const directorData = await directorResponse.json();
+      
+      directorMovies = directorData.crew
+        .filter((credit: any) => credit.job === 'Director' && credit.id !== movieId)
+        .map((movie: any) => ({
+          id: movie.id,
+          title: movie.title,
+          release_date: movie.release_date,
+          poster_path: movie.poster_path,
+          vote_average: movie.vote_average,
+          overview: movie.overview,
+          director: director.name,
+          director_id: director.id
+        }));
     }
     
-    const recommendMovies: any[] = [];
-    for (let page = 1; page <= 3; page++) {
-      const recommendResponse = await fetch(
-        `${BASE_URL}/movie/${movieId}/recommendations?api_key=${API_KEY}&language=en-US&page=${page}`
-      );
-      const recommendData = await recommendResponse.json();
-      recommendMovies.push(...recommendData.results);
-    }
+    // Get similar movies based on content
+    const similarResponse = await fetch(
+      `${BASE_URL}/movie/${movieId}/similar?api_key=${API_KEY}&language=en-US&page=1`
+    );
+    const similarData = await similarResponse.json();
     
-    const genreMovies: any[] = [];
-    for (const genreId of primaryGenres.slice(0, 3)) {
-      for (let page = 1; page <= 2; page++) {
-        const genreResponse = await fetch(
-          `${BASE_URL}/discover/movie?api_key=${API_KEY}&with_genres=${genreId}&sort_by=popularity.desc&vote_count.gte=100&language=en-US&page=${page}`
-        );
-        const genreData = await genreResponse.json();
-        genreMovies.push(...genreData.results.filter((m: any) => m.id !== movieId));
-      }
-    }
-    
-    let keywordMovies: any[] = [];
-    if (seriesTitle) {
-      const keywordResponse = await fetch(
-        `${BASE_URL}/search/keyword?api_key=${API_KEY}&query=${encodeURIComponent(seriesTitle)}&page=1`
-      );
-      const keywordData = await keywordResponse.json();
-      
-      if (keywordData.results && keywordData.results.length > 0) {
-        const topKeywords = keywordData.results.slice(0, 5).map((k: any) => k.id);
-        
-        for (const keywordId of topKeywords) {
-          const keywordMovieResponse = await fetch(
-            `${BASE_URL}/discover/movie?api_key=${API_KEY}&with_keywords=${keywordId}&sort_by=popularity.desc&vote_count.gte=50&language=en-US&page=1`
-          );
-          const keywordMovieData = await keywordMovieResponse.json();
-          keywordMovies.push(...keywordMovieData.results);
-        }
-      }
-    }
-    
-    if (isHangoverMovie) {
-      const hangoverResponse = await fetch(
-        `${BASE_URL}/search/movie?api_key=${API_KEY}&query=hangover&language=en-US&page=1`
-      );
-      const hangoverData = await hangoverResponse.json();
-      
-      const hangoverMovies = hangoverData.results.filter((movie: any) => 
-        movie.id !== movieId && movie.title.toLowerCase().includes("hangover")
-      );
-      
-      franchiseMovies.push(...hangoverMovies);
-      
-      franchiseMovies = franchiseMovies.filter((movie, index, self) =>
-        index === self.findIndex((m) => m.id === movie.id)
-      );
-    }
-    
-    const allCandidateMovies = [
-      ...franchiseMovies.map(movie => ({ 
-        ...movie, 
-        source: 'franchise', 
-        baseScore: 100 
-      })),
-      ...similarMovies.map(movie => ({ 
-        ...movie, 
-        source: 'similar', 
-        baseScore: 60
-      })),
-      ...recommendMovies.map(movie => ({ 
-        ...movie, 
-        source: 'recommend', 
-        baseScore: 50
-      })),
-      ...genreMovies.map(movie => ({ 
-        ...movie, 
-        source: 'genre', 
-        baseScore: 70
-      })),
-      ...keywordMovies.map(movie => ({ 
-        ...movie, 
-        source: 'keyword', 
-        baseScore: 40
-      }))
-    ];
-    
-    const uniqueMoviesMap = new Map();
-    allCandidateMovies.forEach(movie => {
-      const existing = uniqueMoviesMap.get(movie.id);
-      if (!existing || existing.baseScore < movie.baseScore) {
-        uniqueMoviesMap.set(movie.id, movie);
-      }
-    });
-    
-    let uniqueMovies = Array.from(uniqueMoviesMap.values());  // Changed from const to let
-    
-    uniqueMovies = uniqueMovies.filter(movie => movie.id !== movieId);
-    
-    const movieGenresPromises = uniqueMovies.map(async (movie) => {
-      try {
-        const detailsResponse = await fetch(
-          `${BASE_URL}/movie/${movie.id}?api_key=${API_KEY}&language=en-US`
-        );
-        const details = await detailsResponse.json();
-        
-        const movieGenreIds = details.genres?.map((g: any) => g.id) || [];
-        const genreOverlap = movieGenreIds.filter((id: number) => primaryGenres.includes(id)).length;
-        const genreScore = genreOverlap / Math.max(1, primaryGenres.length) * 50;
-        
-        return {
-          ...movie,
-          genreScore,
-          genres: details.genres || []
-        };
-      } catch (error) {
-        return {
-          ...movie,
-          genreScore: 0,
-          genres: []
-        };
-      }
-    });
-    
-    const moviesWithGenres = await Promise.all(movieGenresPromises);
-    
-    let scoredMovies = moviesWithGenres.map(movie => {
-      let finalScore = movie.baseScore || 0;
-      
-      finalScore += movie.genreScore || 0;
-      
-      finalScore += Math.min(20, (movie.vote_average || 0) * 2);
-      
-      finalScore += Math.min(20, (movie.popularity || 0) / 50);
-      
-      finalScore += Math.min(10, Math.log10((movie.vote_count || 0) + 1));
-      
-      const releaseYear = movie.release_date ? new Date(movie.release_date).getFullYear() : 0;
-      const currentYear = new Date().getFullYear();
-      const yearDiff = Math.max(0, Math.min(30, currentYear - releaseYear));
-      finalScore += Math.max(0, 15 - yearDiff * 0.5);
-      
-      if (movie.title && seriesTitle && 
-          (movie.title.toLowerCase().includes(seriesTitle.toLowerCase()) || 
-           seriesTitle.toLowerCase().includes(movie.title.toLowerCase()))) {
-        finalScore += 40;
-      }
-      
-      if (isHangoverMovie && movie.title.toLowerCase().includes("hangover")) {
-        finalScore += 60;
-      }
-      
-      return {
-        ...movie,
-        finalScore
-      };
-    });
-    
-    scoredMovies = scoredMovies.map(movie => {
-      if (isHangoverMovie) {
-        const hangoverFranchiseIds = [18785, 45243, 109439];
-        if (hangoverFranchiseIds.includes(movie.id)) {
-          return {
-            ...movie,
-            finalScore: 1000 + (movie.finalScore || 0),
-            source: 'franchise'
-          };
-        }
-      }
-      return movie;
-    });
-    
-    return scoredMovies.sort((a, b) => b.finalScore - a.finalScore).slice(0, 40).map((movie: any) => ({
+    const similarMovies = similarData.results.map((movie: any) => ({
       id: movie.id,
       title: movie.title,
       release_date: movie.release_date,
       poster_path: movie.poster_path,
       vote_average: movie.vote_average,
-      overview: movie.overview,
-      vote_count: movie.vote_count,
-      popularity: movie.popularity,
-      genres: movie.genres,
-      source: movie.source,
-      score: movie.finalScore
+      overview: movie.overview
     }));
+
+    // Combine and deduplicate results
+    const allMovies = [...directorMovies, ...similarMovies];
+    const uniqueMovies = Array.from(new Set(allMovies.map(m => m.id)))
+      .map(id => allMovies.find(m => m.id === id)!);
+
+    return uniqueMovies.slice(0, 40);
   } catch (error) {
     console.error('Error fetching similar movies:', error);
     return [];

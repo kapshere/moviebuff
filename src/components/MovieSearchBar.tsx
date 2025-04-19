@@ -61,7 +61,7 @@ export const MovieSearchBar = ({ onSearch, placeholder = "Search movies..." }: M
           </CommandEmpty>
           {searchTerm.length >= 2 && suggestions && suggestions.length > 0 && (
             <CommandGroup>
-              {suggestions.slice(0, 8).map((movie) => (
+              {suggestions.map((movie) => (
                 <CommandItem
                   key={movie.id}
                   value={`${movie.title}${formatReleaseYear(movie.release_date)}`}
@@ -77,13 +77,16 @@ export const MovieSearchBar = ({ onSearch, placeholder = "Search movies..." }: M
                       target.src = '/placeholder.svg';
                     }}
                   />
-                  <div className="flex flex-col">
+                  <div className="flex flex-col flex-1">
                     <span className="font-medium">{movie.title}</span>
-                    {movie.release_date && (
-                      <span className="text-xs text-[#666666]">
-                        {formatReleaseYear(movie.release_date)}
-                      </span>
-                    )}
+                    <div className="flex flex-col text-xs text-[#666666]">
+                      {movie.release_date && (
+                        <span>{formatReleaseYear(movie.release_date)}</span>
+                      )}
+                      {movie.director && (
+                        <span>Director: {movie.director}</span>
+                      )}
+                    </div>
                   </div>
                 </CommandItem>
               ))}
