@@ -14,6 +14,7 @@ export interface Movie {
   backdrop_path?: string | null;
   director?: string;
   director_id?: number;
+  score?: number;
 }
 
 export interface Genre {

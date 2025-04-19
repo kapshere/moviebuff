@@ -171,9 +171,13 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
           return bScore - aScore;
         case 'relevance':
         default:
-          if (a.score !== undefined && b.score !== undefined) {
-            return b.score - a.score;
+          const aHasScore = 'score' in a;
+          const bHasScore = 'score' in b;
+          
+          if (aHasScore && bHasScore) {
+            return (b.score as number) - (a.score as number);
           }
+          
           const scoreA = (a.vote_average * Math.log10((a.vote_count || 1) + 1)) + ((a.popularity || 0) / 100);
           const scoreB = (b.vote_average * Math.log10((b.vote_count || 1) + 1)) + ((b.popularity || 0) / 100);
           return scoreB - scoreA;
