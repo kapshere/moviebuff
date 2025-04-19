@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -331,7 +330,7 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                     />
                   ) : (
                     <div className="w-full h-full bg-[#1A1A1A] flex items-center justify-center">
-                      <ImageOff className="w-10 h-10 text-[#666666]" />
+                      <ImageOff className="w-12 h-12 text-[#666666]" />
                     </div>
                   )}
                 </div>
@@ -494,7 +493,7 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                         )}
                       </div>
                     </div>
-                    <p className="text-[#CCCCCC] mt-2 text-sm line-clamp-3">
+                    <p className="text-[#DDDDDD] mt-2 text-sm line-clamp-3">
                       {movie.overview}
                     </p>
                     {movie.popularity && (
@@ -568,7 +567,7 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
               )}
               {selectedGenre === 'Top' ? 'Highest Rated Movies:' : `Trending ${selectedGenre} Movies:`}
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
               {filteredMovies.map((movie, index) => (
                 <motion.div
                   key={movie.id}
@@ -578,13 +577,13 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                   className="cursor-pointer"
                   onClick={() => handleMovieSelect(movie)}
                 >
-                  <div className={`p-3 rounded-lg transition-all duration-200 ${
+                  <div className={`p-4 rounded-lg transition-all duration-200 ${
                     selectedMovie?.id === movie.id 
                       ? 'bg-[#3A3A3A] ring-2 ring-[#8B5CF6] transform scale-105' 
                       : 'bg-[#1E1E1E] hover:bg-[#2A2A2A] hover:transform hover:scale-102'
                   }`}>
-                    <div className="flex gap-3">
-                      <div className="w-16 h-24 relative rounded shadow-lg overflow-hidden">
+                    <div className="flex flex-col gap-4">
+                      <div className="w-full h-[400px] relative rounded-lg shadow-lg overflow-hidden">
                         {movie.poster_path ? (
                           <img 
                             src={getPosterUrl(movie.poster_path)}
@@ -597,26 +596,24 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                           />
                         ) : (
                           <div className="w-full h-full bg-[#1A1A1A] flex items-center justify-center">
-                            <ImageOff className="w-8 h-8 text-[#666666]" />
+                            <ImageOff className="w-16 h-16 text-[#666666]" />
                           </div>
                         )}
                       </div>
-                      <div className="flex flex-col justify-between py-1">
-                        <div>
-                          <p className="text-[#F5F5F5] font-medium line-clamp-2">{movie.title}</p>
-                          <div className="flex items-center gap-2 text-[#AAAAAA] text-sm">
-                            <span>{movie.release_date ? new Date(movie.release_date).getFullYear() : 'Unknown'} 📅</span>
-                            <span className="flex items-center gap-1">
-                              <TrendingUp className="w-3 h-3" />
-                              {Math.round(movie.popularity)}
-                            </span>
-                          </div>
+                      <div className="flex flex-col gap-2">
+                        <p className="text-[#F5F5F5] font-medium text-lg line-clamp-2">{movie.title}</p>
+                        <div className="flex items-center justify-between text-[#AAAAAA] text-sm">
+                          <span>{movie.release_date ? new Date(movie.release_date).getFullYear() : 'Unknown'} 📅</span>
+                          <span className="flex items-center gap-1">
+                            <TrendingUp className="w-3 h-3" />
+                            {Math.round(movie.popularity)}
+                          </span>
                         </div>
                         <div className="flex items-center gap-1 text-[#FFD700]">
-                          <Star className="w-4 h-4 fill-current" />
-                          <span className="text-sm">{movie.vote_average.toFixed(1)}/10</span>
+                          <Star className="w-5 h-5 fill-current" />
+                          <span className="text-base">{movie.vote_average.toFixed(1)}/10</span>
                           {movie.vote_count && (
-                            <span className="text-[#AAAAAA] text-xs ml-1">
+                            <span className="text-[#AAAAAA] text-sm ml-1">
                               ({(movie.vote_count/1000).toFixed(1)}K)
                             </span>
                           )}
@@ -833,6 +830,102 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
               </Button>
             </div>
           </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {sortedSimilarMovies.map((movie, index) => (
+              <motion.div
+                key={movie.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="bg-[#1E1E1E] rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:translate-y-[-4px]"
+              >
+                <div className="h-[400px] relative">
+                  {movie.poster_path ? (
+                    <img 
+                      src={getPosterUrl(movie.poster_path)}
+                      alt={movie.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = '/placeholder.svg';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-[#1A1A1A] flex items-center justify-center">
+                      <ImageOff className="w-12 h-12 text-[#666666]" />
+                    </div>
+                  )}
+                  <div className="absolute top-2 right-2 bg-[#1E1E1E] bg-opacity-80 rounded-full p-1">
+                    <div className="flex items-center gap-1 px-2 py-1">
+                      <Star className="w-3 h-3 text-[#FFD700] fill-[#FFD700]" />
+                      <span className="text-white text-xs font-bold">{movie.vote_average.toFixed(1)}</span>
+                    </div>
+                  </div>
+                  
+                  {(movie as any).source && (
+                    <div className="absolute top-2 left-2 rounded-full">
+                      <div className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getSourceColor((movie as any).source)}`}>
+                        {(movie as any).source === 'franchise' ? (
+                          <Theater className="w-3 h-3" />
+                        ) : (
+                          <Target className="w-3 h-3" />
+                        )}
+                        {getSourceLabel((movie as any).source)}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {hasGenreMatch(movie.genres, selectedMovieDetails?.genres) && !(movie as any).source && (
+                    <div className="absolute top-2 left-2 rounded-full">
+                      <div className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-emerald-500 text-black">
+                        <Target className="w-3 h-3" />
+                        Genre Match
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="p-4">
+                  <div className="mb-2">
+                    <h4 className="text-[#F5F5F5] font-bold line-clamp-1">{movie.title}</h4>
+                    <div className="flex justify-between items-center">
+                      <p className="text-[#AAAAAA]">
+                        {movie.release_date ? new Date(movie.release_date).getFullYear() : 'Unknown'}
+                      </p>
+                      {movie.vote_count && (
+                        <span className="text-[#AAAAAA] text-xs">
+                          {movie.vote_count.toLocaleString()} votes
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-[#DDDDDD] mt-2 text-sm line-clamp-3">
+                    {movie.overview}
+                  </p>
+                  {movie.popularity && (
+                    <div className="mt-2 flex items-center gap-1">
+                      <TrendingUp className="w-3 h-3 text-[#AAAAAA]" />
+                      <span className="text-[#AAAAAA] text-xs">
+                        {Math.round(movie.popularity)} popularity
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+          
+          <Button 
+            onClick={() => {
+              setShowRecommendations(false);
+              setSelectedMovie(null);
+              setSelectedMovieDetails(null);
+              setMovieTitle('');
+            }}
+            className="mt-8 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
+          >
+            Start Over
+          </Button>
         </div>
       )}
     </div>
