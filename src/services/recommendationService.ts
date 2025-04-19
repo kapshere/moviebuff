@@ -1,14 +1,20 @@
-
 import { Movie } from '@/types/movie.types';
 import { BASE_URL, API_KEY } from '@/config/api.config';
 import { getFallbackMovies } from './fallbackService';
 
 // Advanced content-based recommendation system
-export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
+export const getSimilarMovies = async (movieId: number, userPreferences?: {
+  preferNewReleases?: boolean,
+  preferSameLanguage?: boolean,
+  moodFilter?: 'happy' | 'dark' | 'action' | 'thoughtful' | 'emotional',
+  weightDirector?: number,
+  weightGenre?: number,
+  weightCast?: number,
+}): Promise<Movie[]> => {
   try {
     // First, get comprehensive details about the target movie
     const movieResponse = await fetch(
-      `${BASE_URL}/movie/${movieId}?api_key=${API_KEY}&language=en-US&append_to_response=keywords,credits,similar,recommendations,videos`
+      `${BASE_URL}/movie/${movieId}?api_key=${API_KEY}&language=en-US&append_to_response=keywords,credits,similar,recommendations,videos,images,release_dates,translations`
     );
     
     if (!movieResponse.ok) {
@@ -18,6 +24,15 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
     
     const movieData = await movieResponse.json();
     const recommendations: Record<number, Movie & { similarityScore?: number; matchReason?: string[] }> = {};
+    
+    // Setup personalized weighting
+    const weights = {
+      director: userPreferences?.weightDirector || 1.0,  // Default weight is 1.0
+      genre: userPreferences?.weightGenre || 1.0,
+      cast: userPreferences?.weightCast || 1.0,
+      era: userPreferences?.preferNewReleases ? 1.5 : 0.8,
+      language: userPreferences?.preferSameLanguage ? 1.5 : 0.7,
+    };
     
     // Step 1: Collection/Franchise Analysis - Same universe movies get highest priority
     if (movieData.belongs_to_collection) {
@@ -56,56 +71,54 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
     const directors = movieData.credits?.crew?.filter((person: any) => person.job === 'Director') || [];
     
     if (directors.length > 0) {
-      for (const director of directors) {
-        try {
-          const directorResponse = await fetch(
-            `${BASE_URL}/person/${director.id}/movie_credits?api_key=${API_KEY}&language=en-US`
+      try {
+        const directorResponse = await fetch(
+          `${BASE_URL}/person/${directors[0].id}/movie_credits?api_key=${API_KEY}&language=en-US`
+        );
+        
+        if (directorResponse.ok) {
+          const directorData = await directorResponse.json();
+          
+          // Get only directorial works, not acting or other roles
+          const directedMovies = directorData.crew.filter((credit: any) => 
+            credit.job === 'Director' && credit.id !== movieId
           );
           
-          if (directorResponse.ok) {
-            const directorData = await directorResponse.json();
-            
-            // Get only directorial works, not acting or other roles
-            const directedMovies = directorData.crew.filter((credit: any) => 
-              credit.job === 'Director' && credit.id !== movieId
-            );
-            
-            for (const movie of directedMovies) {
-              // If we already have this movie but not with this reason, just add the reason
-              if (recommendations[movie.id]) {
-                if (!recommendations[movie.id].matchReason?.includes('Same Director')) {
-                  recommendations[movie.id].matchReason?.push('Same Director');
-                  // Boost score for multiple match reasons
-                  recommendations[movie.id].similarityScore = 
-                    (recommendations[movie.id].similarityScore || 0) + 15;
-                }
-              } else {
-                recommendations[movie.id] = {
-                  id: movie.id,
-                  title: movie.title,
-                  release_date: movie.release_date,
-                  poster_path: movie.poster_path,
-                  vote_average: movie.vote_average,
-                  overview: movie.overview,
-                  popularity: movie.popularity || 0,
-                  vote_count: movie.vote_count || 0,
-                  similarityScore: 85, // High score for same director
-                  matchReason: ['Same Director'],
-                  director: director.name,
-                  director_id: director.id,
-                  source: 'director'
-                };
+          for (const movie of directedMovies) {
+            // If we already have this movie but not with this reason, just add the reason
+            if (recommendations[movie.id]) {
+              if (!recommendations[movie.id].matchReason?.includes('Same Director')) {
+                recommendations[movie.id].matchReason?.push('Same Director');
+                // Boost score for multiple match reasons (with personalized weighting)
+                recommendations[movie.id].similarityScore = 
+                  (recommendations[movie.id].similarityScore || 0) + (15 * weights.director);
               }
+            } else {
+              recommendations[movie.id] = {
+                id: movie.id,
+                title: movie.title,
+                release_date: movie.release_date,
+                poster_path: movie.poster_path,
+                vote_average: movie.vote_average,
+                overview: movie.overview,
+                popularity: movie.popularity || 0,
+                vote_count: movie.vote_count || 0,
+                similarityScore: 85 * weights.director, // High score for same director, with weight
+                matchReason: ['Same Director'],
+                director: directors[0].name,
+                director_id: directors[0].id,
+                source: 'director'
+              };
             }
           }
-        } catch (error) {
-          console.error(`Error fetching movies for director ${director.name}:`, error);
         }
+      } catch (error) {
+        console.error(`Error fetching movies for director ${directors[0].name}:`, error);
       }
     }
     
     // Step 3: Cast Analysis - Movies with same lead actors often have similar audience
-    const mainCast = movieData.credits?.cast?.slice(0, 4) || []; // Consider only top 4 billed actors
+    const mainCast = movieData.credits?.cast?.slice(0, 4) || [];
     
     if (mainCast.length > 0) {
       for (const actor of mainCast) {
@@ -336,8 +349,308 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
       }
     }
     
+    // NEW - Step 8: Visual Style Analysis - Similar cinematography and visual aesthetics
+    try {
+      // First, check if the target movie has associated images
+      const imagesResponse = await fetch(
+        `${BASE_URL}/movie/${movieId}/images?api_key=${API_KEY}`
+      );
+      
+      if (imagesResponse.ok) {
+        const imagesData = await imagesResponse.json();
+        
+        // If we have backdrops, we can use them to find visually similar movies
+        if (imagesData.backdrops && imagesData.backdrops.length > 0) {
+          // TMDB doesn't have a direct visual similarity API, but we can use the "similar" endpoint 
+          // which often includes movies with similar visual style
+          const visualResponse = await fetch(
+            `${BASE_URL}/movie/${movieId}/similar?api_key=${API_KEY}&language=en-US&page=1`
+          );
+          
+          if (visualResponse.ok) {
+            const visualData = await visualResponse.json();
+            const visualMovies = visualData.results.slice(0, 10);
+            
+            for (const movie of visualMovies) {
+              if (recommendations[movie.id]) {
+                if (!recommendations[movie.id].matchReason?.includes('Visual Style')) {
+                  recommendations[movie.id].matchReason?.push('Visual Style');
+                  recommendations[movie.id].similarityScore = 
+                    (recommendations[movie.id].similarityScore || 0) + 12;
+                }
+              } else {
+                recommendations[movie.id] = {
+                  id: movie.id,
+                  title: movie.title,
+                  release_date: movie.release_date,
+                  poster_path: movie.poster_path,
+                  vote_average: movie.vote_average,
+                  overview: movie.overview,
+                  popularity: movie.popularity || 0,
+                  vote_count: movie.vote_count || 0,
+                  similarityScore: 75, // Good score for visual similarity
+                  matchReason: ['Visual Style'],
+                  source: 'visual'
+                };
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error in visual style analysis:', error);
+    }
+    
+    // NEW - Step 9: Language and Region Compatibility
+    try {
+      const movieLanguage = movieData.original_language || 'en';
+      const movieRegion = movieData.production_countries?.[0]?.iso_3166_1 || 'US';
+      
+      // Find movies from the same region and language
+      const regionResponse = await fetch(
+        `${BASE_URL}/discover/movie?api_key=${API_KEY}&language=en-US&sort_by=popularity.desc&with_original_language=${movieLanguage}&region=${movieRegion}&page=1`
+      );
+      
+      if (regionResponse.ok) {
+        const regionData = await regionResponse.json();
+        const regionMovies = regionData.results
+          .filter((movie: any) => movie.id !== movieId)
+          .slice(0, 10);
+        
+        for (const movie of regionMovies) {
+          if (recommendations[movie.id]) {
+            if (!recommendations[movie.id].matchReason?.includes('Same Region/Language')) {
+              recommendations[movie.id].matchReason?.push('Same Region/Language');
+              recommendations[movie.id].similarityScore = 
+                (recommendations[movie.id].similarityScore || 0) + (10 * weights.language);
+            }
+          } else {
+            recommendations[movie.id] = {
+              id: movie.id,
+              title: movie.title,
+              release_date: movie.release_date,
+              poster_path: movie.poster_path,
+              vote_average: movie.vote_average,
+              overview: movie.overview,
+              popularity: movie.popularity || 0,
+              vote_count: movie.vote_count || 0,
+              similarityScore: 65 * weights.language, // Decent score for language/region match
+              matchReason: ['Same Region/Language'],
+              source: 'region'
+            };
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error in language/region analysis:', error);
+    }
+    
+    // NEW - Step 10: Mood-Based Analysis
+    if (userPreferences?.moodFilter) {
+      try {
+        // Keywords associated with different moods
+        const moodKeywords: Record<string, string[]> = {
+          'happy': ['comedy', 'feel-good', 'uplifting', 'light-hearted', 'family'],
+          'dark': ['thriller', 'horror', 'crime', 'dystopian', 'mystery'],
+          'action': ['action', 'adventure', 'superhero', 'explosion', 'fighting'],
+          'thoughtful': ['drama', 'philosophical', 'psychological', 'indie', 'thought-provoking'],
+          'emotional': ['romance', 'melodrama', 'tear-jerker', 'emotional', 'relationships']
+        };
+        
+        const selectedMoodKeywords = moodKeywords[userPreferences.moodFilter] || [];
+        
+        // Convert keywords to a comma-separated string for the API
+        if (selectedMoodKeywords.length > 0) {
+          // We'll use the discover API with keyword filtering
+          // First, we need to get keyword IDs
+          const keywordPromises = selectedMoodKeywords.map(async (keyword) => {
+            try {
+              const keywordResponse = await fetch(
+                `${BASE_URL}/search/keyword?api_key=${API_KEY}&query=${keyword}&page=1`
+              );
+              
+              if (keywordResponse.ok) {
+                const keywordData = await keywordResponse.json();
+                return keywordData.results[0]?.id;
+              }
+              return null;
+            } catch (error) {
+              console.error(`Error fetching keyword ID for ${keyword}:`, error);
+              return null;
+            }
+          });
+          
+          const keywordIds = (await Promise.all(keywordPromises)).filter(id => id !== null);
+          
+          if (keywordIds.length > 0) {
+            const moodResponse = await fetch(
+              `${BASE_URL}/discover/movie?api_key=${API_KEY}&language=en-US&sort_by=popularity.desc&with_keywords=${keywordIds.join('|')}&page=1`
+            );
+            
+            if (moodResponse.ok) {
+              const moodData = await moodResponse.json();
+              const moodMovies = moodData.results
+                .filter((movie: any) => movie.id !== movieId)
+                .slice(0, 15);
+              
+              for (const movie of moodMovies) {
+                if (recommendations[movie.id]) {
+                  if (!recommendations[movie.id].matchReason?.includes(`Matches ${userPreferences.moodFilter} Mood`)) {
+                    recommendations[movie.id].matchReason?.push(`Matches ${userPreferences.moodFilter} Mood`);
+                    recommendations[movie.id].similarityScore = 
+                      (recommendations[movie.id].similarityScore || 0) + 20; // Higher boost for mood match
+                  }
+                } else {
+                  recommendations[movie.id] = {
+                    id: movie.id,
+                    title: movie.title,
+                    release_date: movie.release_date,
+                    poster_path: movie.poster_path,
+                    vote_average: movie.vote_average,
+                    overview: movie.overview,
+                    popularity: movie.popularity || 0,
+                    vote_count: movie.vote_count || 0,
+                    similarityScore: 80, // High score for mood match
+                    matchReason: [`Matches ${userPreferences.moodFilter} Mood`],
+                    source: 'mood'
+                  };
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error in mood-based analysis:', error);
+      }
+    }
+    
+    // NEW - Step 11: Awards and Critical Recognition
+    try {
+      // Find critically acclaimed movies similar to this one
+      // Unfortunately TMDB doesn't have a direct API for awards, but we can use high vote_average as a proxy
+      const acclaimedResponse = await fetch(
+        `${BASE_URL}/discover/movie?api_key=${API_KEY}&language=en-US&sort_by=vote_average.desc&vote_count.gte=1000&vote_average.gte=7.5&with_genres=${movieData.genres.map((g: any) => g.id).join(',')}&page=1`
+      );
+      
+      if (acclaimedResponse.ok) {
+        const acclaimedData = await acclaimedResponse.json();
+        const acclaimedMovies = acclaimedData.results
+          .filter((movie: any) => movie.id !== movieId)
+          .slice(0, 10);
+        
+        for (const movie of acclaimedMovies) {
+          if (recommendations[movie.id]) {
+            if (!recommendations[movie.id].matchReason?.includes('Critically Acclaimed')) {
+              recommendations[movie.id].matchReason?.push('Critically Acclaimed');
+              recommendations[movie.id].similarityScore = 
+                (recommendations[movie.id].similarityScore || 0) + 15;
+            }
+          } else {
+            recommendations[movie.id] = {
+              id: movie.id,
+              title: movie.title,
+              release_date: movie.release_date,
+              poster_path: movie.poster_path,
+              vote_average: movie.vote_average,
+              overview: movie.overview,
+              popularity: movie.popularity || 0,
+              vote_count: movie.vote_count || 0,
+              similarityScore: 75, // Good score for acclaimed movies
+              matchReason: ['Critically Acclaimed'],
+              source: 'acclaimed'
+            };
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error in awards/critical analysis:', error);
+    }
+    
     // Convert the recommendations object to an array and sort by similarity score
     let recommendedMovies = Object.values(recommendations);
+    
+    // Apply additional mood filtering if requested
+    if (userPreferences?.moodFilter) {
+      // Prioritize movies that match the mood
+      recommendedMovies = recommendedMovies.filter(movie => {
+        // If we have a direct mood match, always include it
+        if (movie.matchReason?.includes(`Matches ${userPreferences.moodFilter} Mood`)) {
+          return true;
+        }
+        
+        // For others, do some basic mood analysis based on genres and overview
+        const overview = movie.overview?.toLowerCase() || '';
+        const title = movie.title?.toLowerCase() || '';
+        
+        // Simple text analysis for different moods
+        switch(userPreferences.moodFilter) {
+          case 'happy':
+            // Include if it seems like a happy movie
+            return overview.includes('comedy') || 
+                   overview.includes('fun') || 
+                   overview.includes('humor') ||
+                   title.includes('happy') ||
+                   title.includes('fun') ||
+                   movie.genres?.some(g => g.name === 'Comedy' || g.name === 'Family');
+          case 'dark':
+            // Include if it seems like a dark movie
+            return overview.includes('murder') || 
+                   overview.includes('thriller') || 
+                   overview.includes('suspense') ||
+                   title.includes('dark') ||
+                   title.includes('night') ||
+                   movie.genres?.some(g => g.name === 'Thriller' || g.name === 'Horror' || g.name === 'Crime');
+          case 'action':
+            // Include if it seems like an action movie
+            return overview.includes('action') || 
+                   overview.includes('fight') || 
+                   overview.includes('battle') ||
+                   title.includes('war') ||
+                   title.includes('fight') ||
+                   movie.genres?.some(g => g.name === 'Action' || g.name === 'Adventure');
+          case 'thoughtful':
+            // Include if it seems like a thoughtful movie
+            return overview.includes('life') || 
+                   overview.includes('journey') || 
+                   overview.includes('discover') ||
+                   title.includes('life') ||
+                   title.includes('journey') ||
+                   movie.genres?.some(g => g.name === 'Drama');
+          case 'emotional':
+            // Include if it seems like an emotional movie
+            return overview.includes('love') || 
+                   overview.includes('relationship') || 
+                   overview.includes('heart') ||
+                   title.includes('love') ||
+                   title.includes('heart') ||
+                   movie.genres?.some(g => g.name === 'Romance' || g.name === 'Drama');
+          default:
+            return true;
+        }
+      });
+    }
+    
+    // NEW - Adjust for user's preference for newer releases
+    if (userPreferences?.preferNewReleases) {
+      // Boost newer movies
+      recommendedMovies = recommendedMovies.map(movie => {
+        if (!movie.release_date) return movie;
+        
+        const releaseYear = new Date(movie.release_date).getFullYear();
+        const currentYear = new Date().getFullYear();
+        const yearDiff = currentYear - releaseYear;
+        
+        // If released in the last 5 years, give a boost
+        if (yearDiff <= 5) {
+          return {
+            ...movie,
+            similarityScore: (movie.similarityScore || 0) + (10 * (5 - yearDiff) / 5)
+          };
+        }
+        
+        return movie;
+      });
+    }
     
     // Get detailed information for top recommendations to improve display quality
     const detailedRecommendations = await Promise.all(
@@ -390,110 +703,94 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
   }
 };
 
-// Fetch top rated movies from IMDB (TMDB proxy for this)
-export const getTopIMDBMovies = async (): Promise<Movie[]> => {
+// NEW - Get recommendations based on a combination of multiple movies
+export const getHybridRecommendations = async (movieIds: number[]): Promise<Movie[]> => {
   try {
-    const movies: Movie[] = [];
-    const pagesToFetch = 6;
+    if (movieIds.length === 0) return [];
+    if (movieIds.length === 1) return getSimilarMovies(movieIds[0]);
     
-    for (let page = 1; page <= pagesToFetch; page++) {
-      const response = await fetch(
-        `${BASE_URL}/movie/top_rated?api_key=${API_KEY}&language=en-US&page=${page}`
-      );
-      const data = await response.json();
-      
-      const pageMovies = data.results.map((movie: any) => ({
-        id: movie.id,
-        title: movie.title,
-        release_date: movie.release_date,
-        poster_path: movie.poster_path,
-        vote_average: movie.vote_average,
-        overview: movie.overview,
-        popularity: movie.popularity,
-        vote_count: movie.vote_count
-      }));
-      
-      movies.push(...pageMovies);
-    }
+    // Get recommendations for each individual movie
+    const individualRecommendations = await Promise.all(
+      movieIds.map(id => getSimilarMovies(id))
+    );
     
-    return movies;
+    // Combine and find movies that appear in multiple recommendation sets
+    const movieScores: Record<number, { 
+      movie: Movie, 
+      occurrences: number,
+      totalScore: number 
+    }> = {};
+    
+    // Process each set of recommendations
+    individualRecommendations.forEach((recommendations, idx) => {
+      recommendations.forEach((movie, position) => {
+        if (!movieScores[movie.id]) {
+          movieScores[movie.id] = {
+            movie,
+            occurrences: 1,
+            // Higher weight for movies that appear in top positions
+            totalScore: (movie.similarityScore || 0) * (1 - (position / recommendations.length) * 0.5)
+          };
+        } else {
+          movieScores[movie.id].occurrences += 1;
+          movieScores[movie.id].totalScore += (movie.similarityScore || 0) * 
+            (1 - (position / recommendations.length) * 0.5);
+        }
+      });
+    });
+    
+    // Calculate final score based on occurrences and original scores
+    let hybridRecommendations = Object.values(movieScores)
+      .map(({ movie, occurrences, totalScore }) => {
+        // Calculate a weighted score that favors movies appearing in multiple recommendation sets
+        const occurrenceBoost = occurrences / movieIds.length; // 1.0 if it appears in all sets
+        const averageScore = totalScore / occurrences;
+        const finalScore = averageScore * (1 + occurrenceBoost);
+        
+        return {
+          ...movie,
+          similarityScore: finalScore,
+          matchReason: [
+            ...(movie.matchReason || []),
+            occurrences > 1 ? `Common across ${occurrences} selections` : ''
+          ].filter(Boolean)
+        };
+      });
+    
+    // Remove any of the original movies from the recommendations
+    hybridRecommendations = hybridRecommendations.filter(
+      movie => !movieIds.includes(movie.id)
+    );
+    
+    // Sort by the calculated score
+    return hybridRecommendations.sort((a, b) => 
+      (b.similarityScore || 0) - (a.similarityScore || 0)
+    );
   } catch (error) {
-    console.error('Error fetching top IMDB movies:', error);
+    console.error('Error generating hybrid recommendations:', error);
     return [];
   }
 };
 
-// Advanced movie discovery with multiple parameters for better recommendations
-export const discoverMoviesByParams = async (params: {
-  genres?: number[];
-  year?: number;
-  voteMin?: number;
-  sortBy?: string;
-  withCast?: number[];
-  withDirector?: number;
-  withKeywords?: number[];
-}): Promise<Movie[]> => {
+// NEW - Generate recommendations based on user viewing history
+export const getPersonalizedRecommendations = async (
+  watchHistory: number[], 
+  userRatings: Record<number, number> = {}
+): Promise<Movie[]> => {
   try {
-    // Build query parameters
-    const queryParams = new URLSearchParams();
-    queryParams.append('api_key', API_KEY);
-    queryParams.append('language', 'en-US');
-    queryParams.append('page', '1');
-    queryParams.append('include_adult', 'false');
+    if (watchHistory.length === 0) return [];
     
-    if (params.genres && params.genres.length > 0) {
-      queryParams.append('with_genres', params.genres.join(','));
-    }
+    // Calculate weight for each movie in history based on ratings
+    const weightedHistory = watchHistory.map(id => {
+      const rating = userRatings[id] || 5; // Default to 5/10 if no rating
+      return {
+        id,
+        weight: rating / 10 // Normalize to 0-1 range
+      };
+    });
     
-    if (params.year) {
-      queryParams.append('primary_release_year', params.year.toString());
-    }
+    // Sort by weight, higher ratings get more influence
+    weightedHistory.sort((a, b) => b.weight - a.weight);
     
-    if (params.voteMin) {
-      queryParams.append('vote_average.gte', params.voteMin.toString());
-      queryParams.append('vote_count.gte', '100'); // Ensure enough votes
-    }
-    
-    if (params.sortBy) {
-      queryParams.append('sort_by', params.sortBy);
-    } else {
-      queryParams.append('sort_by', 'popularity.desc');
-    }
-    
-    if (params.withCast && params.withCast.length > 0) {
-      queryParams.append('with_cast', params.withCast.join('|'));
-    }
-    
-    if (params.withDirector) {
-      queryParams.append('with_crew', params.withDirector.toString());
-    }
-    
-    if (params.withKeywords && params.withKeywords.length > 0) {
-      queryParams.append('with_keywords', params.withKeywords.join('|'));
-    }
-    
-    const response = await fetch(
-      `${BASE_URL}/discover/movie?${queryParams.toString()}`
-    );
-    
-    if (!response.ok) {
-      throw new Error(`Discovery API responded with: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    return data.results.map((movie: any) => ({
-      id: movie.id,
-      title: movie.title,
-      release_date: movie.release_date,
-      poster_path: movie.poster_path,
-      vote_average: movie.vote_average,
-      overview: movie.overview,
-      popularity: movie.popularity || 0,
-      vote_count: movie.vote_count || 0
-    }));
-  } catch (error) {
-    console.error('Error in movie discovery:', error);
-    return [];
-  }
-};
+    // Take the top 5 most relevant movies from history
+    const top
