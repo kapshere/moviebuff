@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -238,7 +237,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
     });
   }, [filteredSimilarMovies, sortOption, selectedMovieDetails]);
 
-  // Calculate statistics for filtering
   const sourceStats = useMemo(() => {
     if (!similarMovies.length) return [];
     
@@ -291,7 +289,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
       } else {
         toast.success(`Found ${similar.length} movies you might enjoy!`);
         
-        // Count match types for feedback
         const matchTypes = similar.slice(0, 20).reduce((acc: Record<string, number>, movie) => {
           const source = (movie as any).source || 'unknown';
           acc[source] = (acc[source] || 0) + 1;
@@ -389,7 +386,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
     return movieGenres.some(g1 => referenceGenres.some(g2 => g1.id === g2.id));
   };
 
-  // Calculate the most common sources among recommendations
   const renderMatchReasons = (movie: Movie) => {
     if (!(movie as any).matchReason) return null;
     
@@ -432,7 +428,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
         
         {!isLoading && selectedMovie && (
           <div className="w-full max-w-4xl">
-            {/* Show selected movie details */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -521,7 +516,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
               </div>
             </motion.div>
 
-            {/* Advanced filtering controls */}
             <div className="mb-6 space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="text-2xl font-bold text-[#F5F5F5]">
@@ -624,7 +618,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
               </div>
             </div>
             
-            {/* Results count */}
             {sortedSimilarMovies.length > 0 && (
               <div className="mb-4 text-[#AAAAAA]">
                 Showing {sortedSimilarMovies.length} 
@@ -633,7 +626,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
               </div>
             )}
             
-            {/* Movie recommendations grid */}
             {viewMode === 'grid' ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
                 {sortedSimilarMovies.map((movie, index) => (
@@ -661,7 +653,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                         </div>
                       )}
                       
-                      {/* Rating badge */}
                       <div className="absolute top-2 right-2 bg-[#1E1E1E] bg-opacity-80 rounded-full p-1">
                         <div className="flex items-center gap-1 px-2 py-1">
                           <Star className="w-3 h-3 text-[#FFD700] fill-[#FFD700]" />
@@ -669,7 +660,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                         </div>
                       </div>
                       
-                      {/* Source badge */}
                       {(movie as any).source && (
                         <div className="absolute top-2 left-2 rounded-full">
                           <div className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getSourceColor((movie as any).source)}`}>
@@ -679,7 +669,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                         </div>
                       )}
                       
-                      {/* Genre match badge */}
                       {hasGenreMatch(movie.genres, selectedMovieDetails?.genres) && !(movie as any).source && (
                         <div className="absolute top-2 left-2 rounded-full">
                           <div className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-emerald-500 text-black">
@@ -689,7 +678,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                         </div>
                       )}
                       
-                      {/* Similarity score badge */}
                       {(movie as any).similarityScore && (
                         <div className="absolute bottom-2 right-2 bg-[#1E1E1E] bg-opacity-80 rounded-full">
                           <div className="flex items-center gap-1 px-2 py-1">
@@ -718,7 +706,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                         </div>
                       </div>
                       
-                      {/* Show movie director if available */}
                       {movie.director && (
                         <div className="flex items-center gap-1 text-[#AAAAAA] text-xs mt-1">
                           <User className="w-3 h-3" />
@@ -726,7 +713,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                         </div>
                       )}
                       
-                      {/* Movie genres */}
                       {movie.genres && movie.genres.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {movie.genres.slice(0, 3).map(genre => (
@@ -740,7 +726,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                         </div>
                       )}
                       
-                      {/* Show match reasons if available */}
                       {renderMatchReasons(movie)}
                       
                       <p className="text-[#DDDDDD] mt-2 text-sm line-clamp-3">
@@ -760,7 +745,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                 ))}
               </div>
             ) : (
-              // Compact list view
               <div className="space-y-3">
                 {sortedSimilarMovies.map((movie, index) => (
                   <motion.div
@@ -770,7 +754,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                     transition={{ delay: index * 0.03 }}
                     className="bg-[#1E1E1E] rounded-lg p-3 flex gap-4 hover:bg-[#262626] transition-colors"
                   >
-                    {/* Poster */}
                     <div className="w-16 h-24 flex-shrink-0 relative rounded overflow-hidden">
                       {movie.poster_path ? (
                         <img 
@@ -788,7 +771,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                         </div>
                       )}
                       
-                      {/* Similarity score badge */}
                       {(movie as any).similarityScore && (
                         <div className="absolute bottom-0 left-0 right-0 bg-[#1E1E1E] bg-opacity-90 text-center py-0.5">
                           <span className="text-white text-[10px] font-bold">
@@ -798,7 +780,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                       )}
                     </div>
                     
-                    {/* Info */}
                     <div className="flex-grow overflow-hidden">
                       <div className="flex justify-between items-start">
                         <h4 className="text-[#F5F5F5] font-medium line-clamp-1">
@@ -832,7 +813,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                         )}
                       </div>
                       
-                      {/* Show source badge */}
                       {(movie as any).source && (
                         <div className="mt-1">
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${getSourceColor((movie as any).source)}`}>
@@ -842,7 +822,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                         </div>
                       )}
                       
-                      {/* Show match reasons */}
                       {renderMatchReasons(movie)}
                       
                       <p className="text-[#DDDDDD] mt-1 text-xs line-clamp-2">
@@ -892,6 +871,7 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
               <Button
                 onClick={handleDone}
                 className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white font-medium"
+                disabled={!selectedMovie}
               >
                 Find Similar Movies
               </Button>
@@ -935,7 +915,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                       </div>
                     )}
                     
-                    {/* Rating badge */}
                     <div className="absolute top-2 right-2 bg-[#1E1E1E] bg-opacity-80 rounded-full p-1">
                       <div className="flex items-center gap-1 px-2 py-1">
                         <Star className="w-3 h-3 text-[#FFD700] fill-[#FFD700]" />
@@ -943,7 +922,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                       </div>
                     </div>
                     
-                    {/* Checkmark for selected movie */}
                     {selectedMovie?.id === movie.id && (
                       <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center">
                         <div className="bg-[#8B5CF6] rounded-full p-2">
@@ -980,7 +958,7 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
         </>
       )}
       
-      {!showRecommendations && selectedMovie && selectedGenre === 'Search' && (
+      {!showRecommendations && selectedMovie && (
         <div className="mt-8 flex justify-center">
           <Button
             onClick={handleDone}
