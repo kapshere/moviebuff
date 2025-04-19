@@ -8,6 +8,11 @@ export const getMovieDetails = async (movieId: number): Promise<Movie | null> =>
       `${BASE_URL}/movie/${movieId}?api_key=${API_KEY}&language=en-US&append_to_response=credits`
     );
     
+    if (!response.ok) {
+      console.error('Movie details API responded with:', response.status);
+      return null;
+    }
+    
     const data = await response.json();
     
     // Find the director from the credits
@@ -16,16 +21,16 @@ export const getMovieDetails = async (movieId: number): Promise<Movie | null> =>
     return {
       id: data.id,
       title: data.title,
-      release_date: data.release_date,
+      release_date: data.release_date || '',
       poster_path: data.poster_path,
       backdrop_path: data.backdrop_path,
-      vote_average: data.vote_average,
-      overview: data.overview,
-      genres: data.genres,
+      vote_average: data.vote_average || 0,
+      overview: data.overview || '',
+      genres: data.genres || [],
       runtime: data.runtime,
-      vote_count: data.vote_count,
-      popularity: data.popularity,
-      tagline: data.tagline,
+      vote_count: data.vote_count || 0,
+      popularity: data.popularity || 0,
+      tagline: data.tagline || '',
       director: director?.name,
       director_id: director?.id
     };

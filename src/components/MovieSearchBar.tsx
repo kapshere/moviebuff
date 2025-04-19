@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/command';
 import { useQuery } from '@tanstack/react-query';
 import { searchMovies } from '@/services/movieService';
+import { toast } from 'sonner';
 
 interface MovieSearchBarProps {
   onSearch: (query: string) => void;
@@ -20,11 +21,15 @@ interface MovieSearchBarProps {
 export const MovieSearchBar = ({ onSearch, placeholder = "Search movies..." }: MovieSearchBarProps) => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { data: suggestions = [], isLoading } = useQuery({
+  const { data: suggestions = [], isLoading, isError } = useQuery({
     queryKey: ['movieSuggestions', searchTerm],
     queryFn: () => searchMovies(searchTerm),
     enabled: searchTerm.length >= 2,
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    retry: 2, // Retry failed requests twice
+    onError: () => {
+      toast.error("Couldn't connect to the movie database. Using sample data instead.");
+    }
   });
 
   const handleSelect = (movieTitle: string) => {
@@ -57,7 +62,7 @@ export const MovieSearchBar = ({ onSearch, placeholder = "Search movies..." }: M
         </div>
         <CommandList className="max-h-[300px] overflow-y-auto p-1">
           <CommandEmpty className="py-6 text-center text-sm text-[#666666]">
-            {isLoading ? "Searching..." : "No movies found."}
+            {isLoading ? "Searching..." : isError ? "Error connecting to database. Try a different search." : "No movies found."}
           </CommandEmpty>
           {searchTerm.length >= 2 && suggestions && suggestions.length > 0 && (
             <CommandGroup>
