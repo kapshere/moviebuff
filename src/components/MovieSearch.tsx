@@ -3,8 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { CheckCheck, Search, Film, Star, ImageOff, Clock, Users, Calendar, TrendingUp, Award, Theater, Target, User, Hash, Filter, RefreshCw, Zap, History, Calendar as CalendarIcon } from 'lucide-react';
-import { MovieSearchBar } from '@/components/MovieSearchBar';
+import { Search, Film, Star, ImageOff, Clock, Calendar, TrendingUp, Award, Theater, Target, User, Hash, Filter, RefreshCw, Zap, History, Calendar as CalendarIcon } from 'lucide-react';
 import { 
   getMoviesByGenre,
   searchMovies,
@@ -408,6 +407,432 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
       </div>
     );
   };
+
+  if (showRecommendations && selectedMovie) {
+    return (
+      <div className="p-6 flex flex-col items-center">
+        <h2 className="text-2xl font-bold text-[#F5F5F5] mb-6 flex items-center gap-2">
+          <Film className="w-6 h-6 text-[#8B5CF6]" />
+          Movies Similar to "{selectedMovie.title}" 🎬
+        </h2>
+        
+        {isLoading && (
+          <div className="w-full text-center py-8">
+            <p className="text-[#F5F5F5] animate-pulse">Finding the perfect movies for you... ✨</p>
+          </div>
+        )}
+        
+        {!isLoading && selectedMovie && (
+          <div className="w-full max-w-4xl">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mb-6 rounded-xl overflow-hidden relative"
+            >
+              {selectedMovieDetails?.backdrop_path && (
+                <div className="absolute inset-0 w-full h-full">
+                  <div 
+                    className="w-full h-full bg-cover bg-center" 
+                    style={{ 
+                      backgroundImage: `url('${getBackdropUrl(selectedMovieDetails.backdrop_path)}')`,
+                      filter: 'blur(2px)',
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-black bg-opacity-70" />
+                </div>
+              )}
+              
+              <div className="relative p-6 flex gap-6 items-start z-10">
+                <div className="w-32 h-48 flex-shrink-0 relative rounded-lg shadow-lg overflow-hidden">
+                  {selectedMovie?.poster_path ? (
+                    <img 
+                      src={getPosterUrl(selectedMovie.poster_path)}
+                      alt={selectedMovie?.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = '/placeholder.svg';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-[#1A1A1A] flex items-center justify-center">
+                      <ImageOff className="w-12 h-12 text-[#666666]" />
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex-grow">
+                  <h3 className="text-[#F5F5F5] text-2xl font-bold">
+                    {selectedMovie?.title} 
+                    {selectedMovie?.release_date && 
+                      <span className="ml-2 text-[#AAAAAA] text-lg font-normal">
+                        ({new Date(selectedMovie.release_date).getFullYear()})
+                      </span>
+                    }
+                  </h3>
+                  
+                  {selectedMovieDetails?.tagline && (
+                    <p className="text-[#10B981] italic mt-1">{selectedMovieDetails.tagline}</p>
+                  )}
+                  
+                  {renderMovieGenres(selectedMovieDetails?.genres)}
+                  
+                  <div className="mt-3 flex flex-wrap gap-5">
+                    <div className="flex items-center gap-1">
+                      <Star className="w-4 h-4 text-[#FFD700] fill-[#FFD700]" />
+                      <span className="text-[#F5F5F5]">
+                        {selectedMovie.vote_average.toFixed(1)}/10
+                        {selectedMovie.vote_count && 
+                          <span className="text-[#AAAAAA] text-xs ml-1">
+                            ({selectedMovie.vote_count.toLocaleString()} votes)
+                          </span>
+                        }
+                      </span>
+                    </div>
+                    
+                    {selectedMovieDetails?.runtime && (
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-4 h-4 text-[#AAAAAA]" />
+                        <span className="text-[#F5F5F5]">{formatRuntime(selectedMovieDetails.runtime)}</span>
+                      </div>
+                    )}
+                    
+                    {selectedMovie.popularity && (
+                      <div className="flex items-center gap-1">
+                        <TrendingUp className="w-4 h-4 text-[#AAAAAA]" />
+                        <span className="text-[#F5F5F5]">{Math.round(selectedMovie.popularity)} popularity</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <p className="text-[#DDDDDD] mt-4">
+                    {selectedMovie?.overview}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+
+            <div className="mb-6 space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-bold text-[#F5F5F5]">
+                  Advanced Recommendations:
+                </h3>
+                
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={refreshRecommendations}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-1"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Refresh
+                  </Button>
+                  
+                  <Button
+                    onClick={() => setViewMode(viewMode === 'grid' ? 'compact' : 'grid')}
+                    variant="outline"
+                    size="sm"
+                  >
+                    {viewMode === 'grid' ? 'Compact View' : 'Grid View'}
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-grow">
+                  <Input
+                    type="text"
+                    placeholder="Filter results..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="bg-[#1E1E1E] text-[#F5F5F5] border-[#333333]"
+                  />
+                </div>
+                
+                <div className="flex flex-wrap gap-2">
+                  {sourceStats.slice(0, 5).map(({source, count}) => (
+                    <Button 
+                      key={source}
+                      onClick={() => setFilterSource(filterSource === source ? null : source)}
+                      variant={filterSource === source ? 'default' : 'outline'}
+                      className={filterSource === source 
+                        ? `${getSourceColor(source)}` 
+                        : 'bg-[#2A2A2A]'
+                      }
+                      size="sm"
+                    >
+                      {getSourceIcon(source)}
+                      <span className="ml-1">{getSourceLabel(source)}</span>
+                      <span className="ml-1 text-xs opacity-80">({count})</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flex flex-wrap gap-2">
+                <Button 
+                  onClick={() => setSortOption('relevance')} 
+                  variant={sortOption === 'relevance' ? 'default' : 'outline'}
+                  className={sortOption === 'relevance' ? 'bg-[#8B5CF6]' : 'bg-[#2A2A2A]'}
+                  size="sm"
+                >
+                  Relevance
+                </Button>
+                <Button 
+                  onClick={() => setSortOption('rating')} 
+                  variant={sortOption === 'rating' ? 'default' : 'outline'}
+                  className={sortOption === 'rating' ? 'bg-[#8B5CF6]' : 'bg-[#2A2A2A]'}
+                  size="sm"
+                >
+                  Top Rated
+                </Button>
+                <Button 
+                  onClick={() => setSortOption('popularity')} 
+                  variant={sortOption === 'popularity' ? 'default' : 'outline'}
+                  className={sortOption === 'popularity' ? 'bg-[#8B5CF6]' : 'bg-[#2A2A2A]'}
+                  size="sm"
+                >
+                  Most Popular
+                </Button>
+                <Button 
+                  onClick={() => setSortOption('genre')} 
+                  variant={sortOption === 'genre' ? 'default' : 'outline'}
+                  className={sortOption === 'genre' ? 'bg-[#8B5CF6]' : 'bg-[#2A2A2A]'}
+                  size="sm"
+                >
+                  Genre Match
+                </Button>
+                <Button 
+                  onClick={() => setSortOption('year')} 
+                  variant={sortOption === 'year' ? 'default' : 'outline'}
+                  className={sortOption === 'year' ? 'bg-[#8B5CF6]' : 'bg-[#2A2A2A]'}
+                  size="sm"
+                >
+                  Newest
+                </Button>
+              </div>
+            </div>
+            
+            {sortedSimilarMovies.length > 0 && (
+              <div className="mb-4 text-[#AAAAAA]">
+                Showing {sortedSimilarMovies.length} 
+                {filterSource ? ` ${getSourceLabel(filterSource)}` : ''} 
+                {searchQuery ? ` matches for "${searchQuery}"` : ' recommendations'}
+              </div>
+            )}
+            
+            {viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                {sortedSimilarMovies.map((movie, index) => (
+                  <motion.div
+                    key={movie.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="bg-[#1E1E1E] rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:translate-y-[-4px]"
+                  >
+                    <div className="h-[400px] relative">
+                      {movie.poster_path ? (
+                        <img 
+                          src={getPosterUrl(movie.poster_path)}
+                          alt={movie.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = '/placeholder.svg';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-[#1A1A1A] flex items-center justify-center">
+                          <ImageOff className="w-12 h-12 text-[#666666]" />
+                        </div>
+                      )}
+                      
+                      <div className="absolute top-2 right-2 bg-[#1E1E1E] bg-opacity-80 rounded-full p-1">
+                        <div className="flex items-center gap-1 px-2 py-1">
+                          <Star className="w-3 h-3 text-[#FFD700] fill-[#FFD700]" />
+                          <span className="text-white text-xs font-bold">{movie.vote_average.toFixed(1)}</span>
+                        </div>
+                      </div>
+                      
+                      {(movie as any).source && (
+                        <div className="absolute top-2 left-2 rounded-full">
+                          <div className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getSourceColor((movie as any).source)}`}>
+                            {getSourceIcon((movie as any).source)}
+                            {getSourceLabel((movie as any).source)}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {hasGenreMatch(movie.genres, selectedMovieDetails?.genres) && !(movie as any).source && (
+                        <div className="absolute top-2 left-2 rounded-full">
+                          <div className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-emerald-500 text-black">
+                            <Hash className="w-3 h-3" />
+                            Genre Match
+                          </div>
+                        </div>
+                      )}
+                      
+                      {(movie as any).similarityScore && (
+                        <div className="absolute bottom-2 right-2 bg-[#1E1E1E] bg-opacity-80 rounded-full">
+                          <div className="flex items-center gap-1 px-2 py-1">
+                            <Target className="w-3 h-3 text-[#8B5CF6]" />
+                            <span className="text-white text-xs font-bold">
+                              {Math.min(99, Math.round((movie as any).similarityScore))}% Match
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="p-4">
+                      <div className="mb-2">
+                        <h4 className="text-[#F5F5F5] font-bold line-clamp-1">{movie.title}</h4>
+                        <div className="flex justify-between items-center">
+                          <p className="text-[#AAAAAA] flex items-center gap-1">
+                            <CalendarIcon className="w-3 h-3" />
+                            {getYear(movie.release_date)}
+                          </p>
+                          {movie.vote_count && (
+                            <span className="text-[#AAAAAA] text-xs">
+                              {movie.vote_count.toLocaleString()} votes
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {movie.director && (
+                        <div className="flex items-center gap-1 text-[#AAAAAA] text-xs mt-1">
+                          <User className="w-3 h-3" />
+                          <span>Director: {movie.director}</span>
+                        </div>
+                      )}
+                      
+                      {movie.genres && movie.genres.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {movie.genres.slice(0, 3).map(genre => (
+                            <span 
+                              key={genre.id} 
+                              className="text-[10px] bg-[#333333] px-1.5 py-0.5 rounded-full text-[#AAAAAA]"
+                            >
+                              {genre.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {renderMatchReasons(movie)}
+                      
+                      <p className="text-[#DDDDDD] mt-2 text-sm line-clamp-3">
+                        {movie.overview}
+                      </p>
+                      
+                      {movie.popularity && (
+                        <div className="mt-2 flex items-center gap-1">
+                          <TrendingUp className="w-3 h-3 text-[#AAAAAA]" />
+                          <span className="text-[#AAAAAA] text-xs">
+                            {Math.round(movie.popularity)} popularity
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {sortedSimilarMovies.map((movie, index) => (
+                  <motion.div
+                    key={movie.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.03 }}
+                    className="bg-[#1E1E1E] rounded-lg p-3 flex gap-4 hover:bg-[#262626] transition-colors"
+                  >
+                    <div className="w-16 h-24 flex-shrink-0 relative rounded overflow-hidden">
+                      {movie.poster_path ? (
+                        <img 
+                          src={getPosterUrl(movie.poster_path)}
+                          alt={movie.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = '/placeholder.svg';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-[#1A1A1A] flex items-center justify-center">
+                          <ImageOff className="w-8 h-8 text-[#666666]" />
+                        </div>
+                      )}
+                      
+                      {(movie as any).similarityScore && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-[#1E1E1E] bg-opacity-90 text-center py-0.5">
+                          <span className="text-white text-[10px] font-bold">
+                            {Math.min(99, Math.round((movie as any).similarityScore))}%
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex-grow overflow-hidden">
+                      <div className="flex justify-between items-start">
+                        <h4 className="text-[#F5F5F5] font-medium line-clamp-1">
+                          {movie.title}
+                        </h4>
+                        
+                        <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                          <Star className="w-3 h-3 text-[#FFD700] fill-[#FFD700]" />
+                          <span className="text-white text-xs">{movie.vote_average.toFixed(1)}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-[#AAAAAA]">
+                        <span className="flex items-center gap-1">
+                          <CalendarIcon className="w-3 h-3" />
+                          {getYear(movie.release_date)}
+                        </span>
+                        
+                        {movie.runtime && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {formatRuntime(movie.runtime)}
+                          </span>
+                        )}
+                        
+                        {movie.director && (
+                          <span className="flex items-center gap-1">
+                            <User className="w-3 h-3" />
+                            {movie.director}
+                          </span>
+                        )}
+                      </div>
+                      
+                      {(movie as any).source && (
+                        <div className="mt-1">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${getSourceColor((movie as any).source)}`}>
+                            {getSourceIcon((movie as any).source)}
+                            {getSourceLabel((movie as any).source)}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {renderMatchReasons(movie)}
+                      
+                      <p className="text-[#DDDDDD] mt-1 text-xs line-clamp-2">
+                        {movie.overview}
+                      </p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (showRecommendations && selectedGenre === 'Search' && directSearchQuery) {
     return (
@@ -845,26 +1270,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
               ? 'Top Rated IMDB Movies' 
               : `Browse ${selectedGenre} Movies`}
         </h2>
-        
-        {!showRecommendations && selectedGenre === 'Search' && (
-          <div className="max-w-xl mx-auto">
-            <MovieSearchBar
-              onSearch={(query) => {
-                if (query) {
-                  setMovieTitle(query);
-                  const foundMovie = filteredMovies.find(m => 
-                    m.title.toLowerCase() === query.toLowerCase()
-                  ) || filteredMovies[0];
-                  
-                  if (foundMovie) {
-                    handleMovieSelect(foundMovie);
-                  }
-                }
-              }}
-              placeholder="Enter a movie title to find similar films..."
-            />
-          </div>
-        )}
       </div>
       
       {isLoading ? (
