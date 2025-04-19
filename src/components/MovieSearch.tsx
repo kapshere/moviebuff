@@ -3,13 +3,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { CheckCheck, Search, Film, Star } from 'lucide-react';
+import { CheckCheck, Search, Film, Star, ImageOff } from 'lucide-react';
 import { 
   getMoviesByGenre, 
   getSimilarMovies, 
   getFallbackMovies, 
   type Movie 
 } from '@/services/movieService';
+
+interface MovieSearchProps {
+  selectedGenre: string;
+}
 
 const genreIds: Record<string, number> = {
   'Action': 28,
@@ -112,11 +116,15 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
     }
   };
 
-  const getPosterUrl = (path: string) => {
+  const getPosterUrl = (path: string | null) => {
+    if (!path) {
+      return '/placeholder.svg';
+    }
+    
     if (path.startsWith('/')) {
       return `https://image.tmdb.org/t/p/w500${path}`;
     }
-    return path; // Use as-is for fallback images
+    return path;
   };
 
   return (
@@ -166,15 +174,23 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
                       : 'bg-[#1E1E1E] hover:bg-[#2A2A2A] hover:transform hover:scale-102'
                   }`}>
                     <div className="flex gap-3">
-                      <img 
-                        src={getPosterUrl(movie.poster_path)}
-                        alt={movie.title}
-                        className="w-16 h-24 object-cover rounded shadow-lg"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = '/placeholder.svg';
-                        }}
-                      />
+                      <div className="w-16 h-24 relative rounded shadow-lg overflow-hidden">
+                        {movie.poster_path ? (
+                          <img 
+                            src={getPosterUrl(movie.poster_path)}
+                            alt={movie.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = '/placeholder.svg';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-[#1A1A1A] flex items-center justify-center">
+                            <ImageOff className="w-8 h-8 text-[#666666]" />
+                          </div>
+                        )}
+                      </div>
                       <div className="flex flex-col justify-between py-1">
                         <div>
                           <p className="text-[#F5F5F5] font-medium line-clamp-2">{movie.title}</p>
@@ -205,15 +221,23 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
                 Selected Movie:
               </h3>
               <div className="flex items-center gap-4">
-                <img 
-                  src={getPosterUrl(selectedMovie.poster_path)}
-                  alt={selectedMovie.title}
-                  className="w-20 h-28 object-cover rounded shadow-lg"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src = '/placeholder.svg';
-                  }}
-                />
+                <div className="w-20 h-28 relative rounded shadow-lg overflow-hidden">
+                  {selectedMovie.poster_path ? (
+                    <img 
+                      src={getPosterUrl(selectedMovie.poster_path)}
+                      alt={selectedMovie.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = '/placeholder.svg';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-[#1A1A1A] flex items-center justify-center">
+                      <ImageOff className="w-8 h-8 text-[#666666]" />
+                    </div>
+                  )}
+                </div>
                 <div>
                   <p className="text-[#F5F5F5] font-medium">{selectedMovie.title}</p>
                   <p className="text-[#AAAAAA]">
@@ -247,15 +271,23 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
             animate={{ opacity: 1 }}
             className="mb-6 p-4 bg-[#2A2A2A] rounded-lg flex gap-4 items-center"
           >
-            <img 
-              src={getPosterUrl(selectedMovie?.poster_path || '')}
-              alt={selectedMovie?.title}
-              className="w-20 h-28 object-cover rounded shadow-lg"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.src = '/placeholder.svg';
-              }}
-            />
+            <div className="w-20 h-28 relative rounded shadow-lg overflow-hidden">
+              {selectedMovie?.poster_path ? (
+                <img 
+                  src={getPosterUrl(selectedMovie.poster_path)}
+                  alt={selectedMovie?.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = '/placeholder.svg';
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full bg-[#1A1A1A] flex items-center justify-center">
+                  <ImageOff className="w-8 h-8 text-[#666666]" />
+                </div>
+              )}
+            </div>
             <div>
               <h3 className="text-[#F5F5F5] text-lg font-semibold">Based on your selection:</h3>
               <p className="text-[#F5F5F5] font-medium">
@@ -278,15 +310,23 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
                 transition={{ delay: index * 0.1 }}
                 className="bg-[#1E1E1E] rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:translate-y-[-4px]"
               >
-                <img 
-                  src={getPosterUrl(movie.poster_path)}
-                  alt={movie.title}
-                  className="w-full h-48 object-cover"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src = '/placeholder.svg';
-                  }}
-                />
+                <div className="h-48 relative">
+                  {movie.poster_path ? (
+                    <img 
+                      src={getPosterUrl(movie.poster_path)}
+                      alt={movie.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = '/placeholder.svg';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-[#1A1A1A] flex items-center justify-center">
+                      <ImageOff className="w-12 h-12 text-[#666666]" />
+                    </div>
+                  )}
+                </div>
                 <div className="p-4">
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="text-[#F5F5F5] font-bold">{movie.title}</h4>
