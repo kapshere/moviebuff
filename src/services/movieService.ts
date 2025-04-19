@@ -1,4 +1,3 @@
-
 export interface Movie {
   id: number;
   title: string;
@@ -33,7 +32,7 @@ export const getGenres = async (): Promise<Genre[]> => {
 export const getMoviesByGenre = async (genreId: number): Promise<Movie[]> => {
   try {
     const response = await fetch(
-      `${BASE_URL}/discover/movie?api_key=${API_KEY}&with_genres=${genreId}&sort_by=popularity.desc&language=en-US`
+      `${BASE_URL}/discover/movie?api_key=${API_KEY}&with_genres=${genreId}&sort_by=popularity.desc&vote_count.gte=1000&language=en-US`
     );
     const data = await response.json();
     return data.results.map((movie: any) => ({
@@ -185,13 +184,13 @@ export const getFallbackMovies = (genre: string): Movie[] => {
   const fallbackMovies = [
     {
       id: 1,
-      title: `The Ultimate ${genre} Movie`,
+      title: `Most Popular ${genre} Movie`,
       release_date: '2024-01-01',
       poster_path: '/placeholder.svg',
-      vote_average: 7.5,
-      overview: 'A high-quality movie in this genre with an engaging plot.',
-      vote_count: 230,
-      popularity: 56.7
+      vote_average: 8.5,
+      overview: 'One of the most watched and beloved movies in this genre.',
+      vote_count: 50000,
+      popularity: 986.7
     },
     {
       id: 2,

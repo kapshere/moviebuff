@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -64,7 +63,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
           if (fetchedMovies.length > 0) {
             setSelectedMovie(fetchedMovies[0]);
             
-            // Get detailed information about the selected movie
             const details = await getMovieDetails(fetchedMovies[0].id);
             if (details) {
               setSelectedMovieDetails(details);
@@ -79,7 +77,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
             }
           }
         } else if (selectedGenre === 'Top') {
-          // Fetch top IMDB movies
           fetchedMovies = await getTopIMDBMovies();
         } else {
           const genreId = genreIds[selectedGenre];
@@ -142,7 +139,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
     setMovieTitle(movie.title);
     setSelectedMovie(movie);
     
-    // Get detailed information about the selected movie
     try {
       const details = await getMovieDetails(movie.id);
       if (details) {
@@ -452,7 +448,7 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
             Top IMDB Movies <Award className="w-5 h-5 text-[#FFD700]" />
           </span>
         ) : (
-          `You picked ${selectedGenre} 🎬`
+          `Most Popular ${selectedGenre} Movies 🔥`
         )}
       </h2>
       
@@ -480,9 +476,9 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
               {selectedGenre === 'Top' ? (
                 <Award className="w-5 h-5 text-[#FFD700]" />
               ) : (
-                <Star className="w-5 h-5 text-[#FFD700]" />
+                <TrendingUp className="w-5 h-5 text-[#FFD700]" />
               )}
-              {selectedGenre === 'Top' ? 'Highest Rated Movies:' : `Popular ${selectedGenre} Movies:`}
+              {selectedGenre === 'Top' ? 'Highest Rated Movies:' : `Trending ${selectedGenre} Movies:`}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {filteredMovies.map((movie, index) => (
@@ -520,16 +516,20 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                       <div className="flex flex-col justify-between py-1">
                         <div>
                           <p className="text-[#F5F5F5] font-medium line-clamp-2">{movie.title}</p>
-                          <p className="text-[#AAAAAA] text-sm">
-                            {movie.release_date ? new Date(movie.release_date).getFullYear() : 'Unknown'} 📅
-                          </p>
+                          <div className="flex items-center gap-2 text-[#AAAAAA] text-sm">
+                            <span>{movie.release_date ? new Date(movie.release_date).getFullYear() : 'Unknown'} 📅</span>
+                            <span className="flex items-center gap-1">
+                              <TrendingUp className="w-3 h-3" />
+                              {Math.round(movie.popularity)}
+                            </span>
+                          </div>
                         </div>
                         <div className="flex items-center gap-1 text-[#FFD700]">
                           <Star className="w-4 h-4 fill-current" />
                           <span className="text-sm">{movie.vote_average.toFixed(1)}/10</span>
                           {movie.vote_count && (
                             <span className="text-[#AAAAAA] text-xs ml-1">
-                              ({movie.vote_count.toLocaleString()})
+                              ({(movie.vote_count/1000).toFixed(1)}K)
                             </span>
                           )}
                         </div>
