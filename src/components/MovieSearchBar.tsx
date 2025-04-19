@@ -4,6 +4,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { searchMovies } from '@/services/searchService';
+import { Movie } from '@/types/movie.types';
 
 interface MovieSearchBarProps {
   onSearch: (query: string) => void;
@@ -22,6 +25,9 @@ export const MovieSearchBar = ({
 }: MovieSearchBarProps) => {
   const [searchQuery, setSearchQuery] = useState(initialValue);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [searchResults, setSearchResults] = useState<Movie[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
   
   useEffect(() => {
     // Load recent searches from localStorage
@@ -34,6 +40,29 @@ export const MovieSearchBar = ({
       console.error('Failed to load recent searches', e);
     }
   }, []);
+  
+  // Fetch search results when search query changes
+  useEffect(() => {
+    const fetchResults = async () => {
+      if (searchQuery.trim().length < 2) {
+        setSearchResults([]);
+        return;
+      }
+      
+      setIsLoading(true);
+      try {
+        const results = await searchMovies(searchQuery.trim());
+        setSearchResults(results.slice(0, 5)); // Limit to 5 results for dropdown
+      } catch (error) {
+        console.error('Error fetching search results:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    const timer = setTimeout(fetchResults, 300); // Debounce
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +79,7 @@ export const MovieSearchBar = ({
     localStorage.setItem('recentMovieSearches', JSON.stringify(updatedSearches));
     
     onSearch(trimmedQuery);
+    setShowDropdown(false);
   };
   
   const filteredRecentSearches = useMemo(() => {
@@ -65,6 +95,21 @@ export const MovieSearchBar = ({
     toast.success('Search history cleared');
   };
   
+  const handleSelectResult = (movie: Movie) => {
+    // Save the movie title to recent searches
+    const updatedSearches = [
+      movie.title,
+      ...recentSearches.filter(s => s !== movie.title)
+    ].slice(0, 5);
+    
+    setRecentSearches(updatedSearches);
+    localStorage.setItem('recentMovieSearches', JSON.stringify(updatedSearches));
+    
+    setSearchQuery(movie.title);
+    onSearch(movie.title);
+    setShowDropdown(false);
+  };
+  
   return (
     <div className="w-full">
       <form onSubmit={handleSubmit} className="flex gap-2">
@@ -72,7 +117,11 @@ export const MovieSearchBar = ({
           <Input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setShowDropdown(e.target.value.trim().length >= 2);
+            }}
+            onFocus={() => setShowDropdown(searchQuery.trim().length >= 2)}
             placeholder={genre ? `Search in ${genre}...` : placeholder}
             className="pl-10 bg-[#1A1A1A] border-[#333333] text-[#E0E0E0]"
           />
@@ -80,11 +129,64 @@ export const MovieSearchBar = ({
           {searchQuery && (
             <button
               type="button"
-              onClick={() => setSearchQuery('')}
+              onClick={() => {
+                setSearchQuery('');
+                setShowDropdown(false);
+              }}
               className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#666666] hover:text-[#999999]"
             >
               <X className="h-4 w-4" />
             </button>
+          )}
+          
+          {/* Search Results Dropdown */}
+          {showDropdown && searchQuery.trim().length >= 2 && (
+            <div className="absolute z-50 mt-1 w-full rounded-md bg-[#1E1E1E] border border-[#333333] shadow-lg">
+              {isLoading && (
+                <div className="p-2 text-center text-[#999999]">
+                  Searching...
+                </div>
+              )}
+              
+              {!isLoading && searchResults.length === 0 && (
+                <div className="p-2 text-center text-[#999999]">
+                  No results found
+                </div>
+              )}
+              
+              {!isLoading && searchResults.length > 0 && (
+                <ul className="max-h-72 overflow-auto">
+                  {searchResults.map((movie) => (
+                    <li key={movie.id}>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectResult(movie)}
+                        className="w-full text-left px-4 py-2 flex items-center gap-3 hover:bg-[#333333] transition-colors"
+                      >
+                        {movie.poster_path ? (
+                          <img 
+                            src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`} 
+                            alt={movie.title}
+                            className="h-12 w-8 object-cover rounded"
+                          />
+                        ) : (
+                          <div className="h-12 w-8 bg-[#333333] rounded flex items-center justify-center">
+                            <Film className="h-4 w-4 text-[#666666]" />
+                          </div>
+                        )}
+                        <div>
+                          <div className="text-[#E0E0E0] font-medium">{movie.title}</div>
+                          <div className="text-xs text-[#999999]">
+                            {movie.release_date ? new Date(movie.release_date).getFullYear() : 'Unknown year'}
+                            {movie.vote_average > 0 && ` • ${movie.vote_average.toFixed(1)}/10`}
+                          </div>
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
         </div>
         <Button type="submit" className="bg-[#8B5CF6] hover:bg-[#7C3AED]">
