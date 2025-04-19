@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -805,3 +806,35 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                 size="sm"
               >
                 Relevance
+              </Button>
+              <Button 
+                onClick={() => setSortOption('rating')} 
+                variant={sortOption === 'rating' ? 'default' : 'outline'}
+                className={sortOption === 'rating' ? 'bg-[#8B5CF6]' : 'bg-[#2A2A2A]'}
+                size="sm"
+              >
+                Top Rated
+              </Button>
+              <Button 
+                onClick={() => setSortOption('genre')} 
+                variant={sortOption === 'genre' ? 'default' : 'outline'}
+                className={sortOption === 'genre' ? 'bg-[#8B5CF6]' : 'bg-[#2A2A2A]'}
+                size="sm"
+              >
+                Genre Match
+              </Button>
+              <Button 
+                onClick={() => setSortOption('year')} 
+                variant={sortOption === 'year' ? 'default' : 'outline'}
+                className={sortOption === 'year' ? 'bg-[#8B5CF6]' : 'bg-[#2A2A2A]'}
+                size="sm"
+              >
+                Newest
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
