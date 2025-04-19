@@ -77,7 +77,7 @@ export const MovieSearchBar = ({ onSearch, placeholder = "Search movies..." }: M
                 <CommandItem
                   key={movie.id}
                   value={`${movie.title}${formatReleaseYear(movie.release_date)}`}
-                  onSelect={handleSelect}
+                  onSelect={() => handleSelect(movie.title)}
                   className="flex items-center gap-3 px-2 py-3 cursor-pointer hover:bg-[#333333] text-[#F5F5F5]"
                 >
                   <img
