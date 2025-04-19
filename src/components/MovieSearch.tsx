@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { Search, Film, Star, ImageOff, Clock, Calendar, TrendingUp, Award, Theater, Target, User, Hash, Filter, RefreshCw, Zap, History, Calendar as CalendarIcon } from 'lucide-react';
+import { Search, Film, Star, ImageOff, Clock, Calendar, TrendingUp, Award, Theater, Target, User, Hash, Filter, RefreshCw, Zap, History, Calendar as CalendarIcon, Check } from 'lucide-react';
 import { 
   getMoviesByGenre,
   searchMovies,
@@ -1317,7 +1317,7 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                     {selectedMovie?.id === movie.id && (
                       <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center">
                         <div className="bg-[#8B5CF6] rounded-full p-2">
-                          <CheckCheck className="w-6 h-6 text-white" />
+                          <Check className="w-6 h-6 text-white" />
                         </div>
                       </div>
                     )}
