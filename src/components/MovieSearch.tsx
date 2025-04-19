@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { CheckCheck, Search, Film, Star, ImageOff, Clock, Users, Calendar, TrendingUp, Award } from 'lucide-react';
+import { CheckCheck, Search, Film, Star, ImageOff, Clock, Users, Calendar, TrendingUp, Award, Theater, Target } from 'lucide-react';
 import { 
   getMoviesByGenre,
   searchMovies,
@@ -11,7 +11,8 @@ import {
   getTopIMDBMovies,
   getMovieDetails,
   getFallbackMovies, 
-  type Movie 
+  type Movie,
+  type Genre
 } from '@/services/movieService';
 
 interface MovieSearchProps {
@@ -38,6 +39,28 @@ const genreIds: Record<string, number> = {
   'Mystery': 9648
 };
 
+const getSourceColor = (source?: string): string => {
+  switch(source) {
+    case 'franchise': return 'bg-amber-500 text-black';
+    case 'genre': return 'bg-emerald-500 text-black';
+    case 'similar': return 'bg-blue-500 text-white';
+    case 'recommend': return 'bg-purple-500 text-white';
+    case 'keyword': return 'bg-pink-500 text-white';
+    default: return 'bg-gray-500 text-white';
+  }
+};
+
+const getSourceLabel = (source?: string): string => {
+  switch(source) {
+    case 'franchise': return 'Same Series';
+    case 'genre': return 'Genre Match';
+    case 'similar': return 'Similar';
+    case 'recommend': return 'Recommended';
+    case 'keyword': return 'Theme Match';
+    default: return 'Related';
+  }
+};
+
 export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchProps) => {
   const [movieTitle, setMovieTitle] = useState('');
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
@@ -47,7 +70,7 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
   const [movies, setMovies] = useState<Movie[]>([]);
   const [similarMovies, setSimilarMovies] = useState<Movie[]>([]);
   const [apiError, setApiError] = useState(false);
-  const [sortOption, setSortOption] = useState<'relevance' | 'rating' | 'year'>('relevance');
+  const [sortOption, setSortOption] = useState<'relevance' | 'rating' | 'year' | 'genre'>('relevance');
 
   useEffect(() => {
     const fetchMovies = async () => {
@@ -130,15 +153,33 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
           const yearB = b.release_date ? new Date(b.release_date).getFullYear() : 0;
           return yearB - yearA;
         });
+      case 'genre':
+        return [...similarMovies].sort((a, b) => {
+          if (!selectedMovieDetails?.genres) return 0;
+          
+          const aGenreMatch = a.genres?.filter(g => 
+            selectedMovieDetails.genres?.some(sg => sg.id === g.id)
+          ).length || 0;
+          
+          const bGenreMatch = b.genres?.filter(g => 
+            selectedMovieDetails.genres?.some(sg => sg.id === g.id)
+          ).length || 0;
+          
+          return bGenreMatch - aGenreMatch;
+        });
       case 'relevance':
       default:
-        return [...similarMovies].sort((a, b) => {
+        return [...similarMovies].sort((a: any, b: any) => {
+          if (a.score !== undefined && b.score !== undefined) {
+            return b.score - a.score;
+          }
+          
           const scoreA = (a.vote_average * Math.log10((a.vote_count || 1) + 1)) + ((a.popularity || 0) / 100);
           const scoreB = (b.vote_average * Math.log10((b.vote_count || 1) + 1)) + ((b.popularity || 0) / 100);
           return scoreB - scoreA;
         });
     }
-  }, [similarMovies, sortOption]);
+  }, [similarMovies, sortOption, selectedMovieDetails]);
 
   const handleMovieSelect = async (movie: Movie) => {
     setMovieTitle(movie.title);
@@ -209,7 +250,7 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
     return path;
   };
 
-  const renderMovieGenres = (genreList: {id: number, name: string}[] | undefined) => {
+  const renderMovieGenres = (genreList: Genre[] | undefined) => {
     if (!genreList || genreList.length === 0) return null;
     
     return (
@@ -228,6 +269,11 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return `${hours}h ${mins}m`;
+  };
+
+  const hasGenreMatch = (movieGenres: Genre[] | undefined, referenceGenres: Genre[] | undefined): boolean => {
+    if (!movieGenres || !referenceGenres) return false;
+    return movieGenres.some(g1 => referenceGenres.some(g2 => g1.id === g2.id));
   };
 
   if (showRecommendations && selectedGenre === 'Search' && directSearchQuery) {
@@ -355,6 +401,14 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                   Top Rated
                 </Button>
                 <Button 
+                  onClick={() => setSortOption('genre')} 
+                  variant={sortOption === 'genre' ? 'default' : 'outline'}
+                  className={sortOption === 'genre' ? 'bg-[#8B5CF6]' : 'bg-[#2A2A2A]'}
+                  size="sm"
+                >
+                  Genre Match
+                </Button>
+                <Button 
                   onClick={() => setSortOption('year')} 
                   variant={sortOption === 'year' ? 'default' : 'outline'}
                   className={sortOption === 'year' ? 'bg-[#8B5CF6]' : 'bg-[#2A2A2A]'}
@@ -396,6 +450,28 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                         <span className="text-white text-xs font-bold">{movie.vote_average.toFixed(1)}</span>
                       </div>
                     </div>
+                    
+                    {(movie as any).source && (
+                      <div className="absolute top-2 left-2 rounded-full">
+                        <div className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getSourceColor((movie as any).source)}`}>
+                          {(movie as any).source === 'franchise' ? (
+                            <Theater className="w-3 h-3" />
+                          ) : (
+                            <Target className="w-3 h-3" />
+                          )}
+                          {getSourceLabel((movie as any).source)}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {hasGenreMatch(movie.genres, selectedMovieDetails?.genres) && !(movie as any).source && (
+                      <div className="absolute top-2 left-2 rounded-full">
+                        <div className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-emerald-500 text-black">
+                          <Target className="w-3 h-3" />
+                          Genre Match
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="p-4">
                     <div className="mb-2">
@@ -733,6 +809,14 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                 Top Rated
               </Button>
               <Button 
+                onClick={() => setSortOption('genre')} 
+                variant={sortOption === 'genre' ? 'default' : 'outline'}
+                className={sortOption === 'genre' ? 'bg-[#8B5CF6]' : 'bg-[#2A2A2A]'}
+                size="sm"
+              >
+                Genre Match
+              </Button>
+              <Button 
                 onClick={() => setSortOption('year')} 
                 variant={sortOption === 'year' ? 'default' : 'outline'}
                 className={sortOption === 'year' ? 'bg-[#8B5CF6]' : 'bg-[#2A2A2A]'}
@@ -774,6 +858,28 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                       <span className="text-white text-xs font-bold">{movie.vote_average.toFixed(1)}</span>
                     </div>
                   </div>
+                  
+                  {(movie as any).source && (
+                    <div className="absolute top-2 left-2 rounded-full">
+                      <div className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getSourceColor((movie as any).source)}`}>
+                        {(movie as any).source === 'franchise' ? (
+                          <Theater className="w-3 h-3" />
+                        ) : (
+                          <Target className="w-3 h-3" />
+                        )}
+                        {getSourceLabel((movie as any).source)}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {hasGenreMatch(movie.genres, selectedMovieDetails?.genres) && !(movie as any).source && (
+                    <div className="absolute top-2 left-2 rounded-full">
+                      <div className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-emerald-500 text-black">
+                        <Target className="w-3 h-3" />
+                        Genre Match
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="p-4">
                   <div className="mb-2">
@@ -789,6 +895,9 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                       )}
                     </div>
                   </div>
+                  
+                  {renderMovieGenres(movie.genres)}
+                  
                   <p className="text-[#CCCCCC] mt-2 text-sm line-clamp-3">
                     {movie.overview}
                   </p>

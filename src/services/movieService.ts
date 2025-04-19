@@ -1,3 +1,4 @@
+
 export interface Movie {
   id: number;
   title: string;
@@ -162,7 +163,41 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
       throw new Error("Could not fetch movie details");
     }
     
-    // Get similar movies (2 pages)
+    // Extract the primary genre(s) from the selected movie
+    const primaryGenres = movieDetails.genres?.map(g => g.id) || [];
+    if (primaryGenres.length === 0) {
+      throw new Error("No genres found for the movie");
+    }
+    
+    // Check if the title suggests it's part of a series (e.g., has a number at the end)
+    const isSeries = /\d+$|\s\d+$|\s\d+:/.test(movieDetails.title);
+    let seriesTitle = "";
+    if (isSeries) {
+      // Extract the base series name (e.g., "The Hangover" from "The Hangover 2")
+      seriesTitle = movieDetails.title.replace(/\s*\d+(:.*)?$|\s+\d+$/, '').trim();
+    } else {
+      // Try to extract the main title without subtitles (e.g., "The Hangover" from "The Hangover: Part II")
+      const colonIndex = movieDetails.title.indexOf(':');
+      seriesTitle = colonIndex > 0 ? movieDetails.title.substring(0, colonIndex).trim() : movieDetails.title;
+    }
+    
+    // 1. Get movies from the same franchise/series
+    let franchiseMovies: any[] = [];
+    if (seriesTitle && seriesTitle !== movieDetails.title) {
+      const franchiseResponse = await fetch(
+        `${BASE_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(seriesTitle)}&language=en-US&page=1`
+      );
+      const franchiseData = await franchiseResponse.json();
+      
+      // Filter for movies that are likely part of the same franchise
+      franchiseMovies = franchiseData.results.filter((movie: any) => {
+        return movie.id !== movieId && 
+               (movie.title.toLowerCase().includes(seriesTitle.toLowerCase()) || 
+                seriesTitle.toLowerCase().includes(movie.title.toLowerCase()));
+      });
+    }
+    
+    // 2. Get pure similar movies (2 pages)
     const similarMovies: any[] = [];
     for (let page = 1; page <= 2; page++) {
       const similarResponse = await fetch(
@@ -172,7 +207,7 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
       similarMovies.push(...similarData.results);
     }
     
-    // Get recommendations (2 pages)
+    // 3. Get recommendations (2 pages)
     const recommendMovies: any[] = [];
     for (let page = 1; page <= 2; page++) {
       const recommendResponse = await fetch(
@@ -182,38 +217,163 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
       recommendMovies.push(...recommendData.results);
     }
     
-    // If the movie has genres, also fetch top movies from those genres
-    let genreMovies: any[] = [];
-    if (movieDetails.genres && movieDetails.genres.length > 0) {
-      const primaryGenre = movieDetails.genres[0].id;
+    // 4. Get top movies from the primary genre with appropriate filters
+    const genreMovies: any[] = [];
+    for (const genreId of primaryGenres.slice(0, 3)) { // Use up to 3 primary genres
       const genreResponse = await fetch(
-        `${BASE_URL}/discover/movie?api_key=${API_KEY}&with_genres=${primaryGenre}&sort_by=popularity.desc&vote_count.gte=100&language=en-US&page=1`
+        `${BASE_URL}/discover/movie?api_key=${API_KEY}&with_genres=${genreId}&sort_by=popularity.desc&vote_count.gte=200&language=en-US&page=1`
       );
       const genreData = await genreResponse.json();
-      genreMovies = genreData.results.filter((m: any) => m.id !== movieId);
+      genreMovies.push(...genreData.results.filter((m: any) => m.id !== movieId));
     }
     
-    // Combine all movie lists
-    let combinedMovies = [
-      ...similarMovies,
-      ...recommendMovies,
-      ...genreMovies
+    // 5. Do a keyword search with the title to find thematically similar movies
+    let keywordMovies: any[] = [];
+    if (seriesTitle) {
+      const keywordResponse = await fetch(
+        `${BASE_URL}/search/keyword?api_key=${API_KEY}&query=${encodeURIComponent(seriesTitle)}&page=1`
+      );
+      const keywordData = await keywordResponse.json();
+      
+      if (keywordData.results && keywordData.results.length > 0) {
+        // Take the top 3 keywords
+        const topKeywords = keywordData.results.slice(0, 3).map((k: any) => k.id);
+        
+        // Get movies with those keywords
+        for (const keywordId of topKeywords) {
+          const keywordMovieResponse = await fetch(
+            `${BASE_URL}/discover/movie?api_key=${API_KEY}&with_keywords=${keywordId}&sort_by=popularity.desc&vote_count.gte=100&language=en-US&page=1`
+          );
+          const keywordMovieData = await keywordMovieResponse.json();
+          keywordMovies.push(...keywordMovieData.results);
+        }
+      }
+    }
+    
+    // Weight and combine all the sources
+    // Prioritize movies in the following order:
+    // 1. Same franchise/series (highest)
+    // 2. Genre match AND high similarity
+    // 3. Same primary genre with high popularity
+    // 4. Keywords match
+    // 5. Recommendations and similar (base level)
+    
+    // Combine all results for scoring
+    let allCandidateMovies = [
+      ...franchiseMovies.map(movie => ({ 
+        ...movie, 
+        source: 'franchise', 
+        baseScore: 100  // High base score for franchise movies
+      })),
+      ...similarMovies.map(movie => ({ 
+        ...movie, 
+        source: 'similar', 
+        baseScore: 60
+      })),
+      ...recommendMovies.map(movie => ({ 
+        ...movie, 
+        source: 'recommend', 
+        baseScore: 50
+      })),
+      ...genreMovies.map(movie => ({ 
+        ...movie, 
+        source: 'genre', 
+        baseScore: 70
+      })),
+      ...keywordMovies.map(movie => ({ 
+        ...movie, 
+        source: 'keyword', 
+        baseScore: 40
+      }))
     ];
     
-    // Remove duplicates
-    const uniqueMovies = Array.from(
-      new Map(combinedMovies.map(movie => [movie.id, movie])).values()
-    );
-    
-    // Sort by relevance (combination of popularity and vote average)
-    const relevantMovies = uniqueMovies.sort((a, b) => {
-      const scoreA = (a.vote_average * Math.log10(a.vote_count + 1)) + (a.popularity / 100);
-      const scoreB = (b.vote_average * Math.log10(b.vote_count + 1)) + (b.popularity / 100);
-      return scoreB - scoreA;
+    // Remove duplicates by preferring the higher scored source
+    const uniqueMoviesMap = new Map();
+    allCandidateMovies.forEach(movie => {
+      const existing = uniqueMoviesMap.get(movie.id);
+      if (!existing || existing.baseScore < movie.baseScore) {
+        uniqueMoviesMap.set(movie.id, movie);
+      }
     });
     
+    let uniqueMovies = Array.from(uniqueMoviesMap.values());
+    
+    // Filter out the original movie
+    uniqueMovies = uniqueMovies.filter(movie => movie.id !== movieId);
+    
+    // Get the genres of each candidate movie and calculate genre overlap
+    const movieGenresPromises = uniqueMovies.map(async (movie) => {
+      try {
+        const detailsResponse = await fetch(
+          `${BASE_URL}/movie/${movie.id}?api_key=${API_KEY}&language=en-US`
+        );
+        const details = await detailsResponse.json();
+        
+        // Calculate genre overlap score
+        const movieGenreIds = details.genres?.map((g: any) => g.id) || [];
+        const genreOverlap = movieGenreIds.filter((id: number) => primaryGenres.includes(id)).length;
+        const genreScore = genreOverlap / Math.max(1, primaryGenres.length) * 50; // Max 50 points for genre match
+        
+        return {
+          ...movie,
+          genreScore,
+          genres: details.genres || []
+        };
+      } catch (error) {
+        // If we can't get details, just return the movie with default values
+        return {
+          ...movie,
+          genreScore: 0,
+          genres: []
+        };
+      }
+    });
+    
+    // Wait for all genre details to be retrieved
+    let moviesWithGenres = await Promise.all(movieGenresPromises);
+    
+    // Final scoring algorithm (complex scoring based on multiple factors)
+    const scoredMovies = moviesWithGenres.map(movie => {
+      // Start with the base score from the source
+      let finalScore = movie.baseScore || 0;
+      
+      // Add genre score
+      finalScore += movie.genreScore || 0;
+      
+      // Add vote average score (0-20 points)
+      finalScore += Math.min(20, (movie.vote_average || 0) * 2);
+      
+      // Add popularity score (0-20 points)
+      finalScore += Math.min(20, (movie.popularity || 0) / 50);
+      
+      // Add vote count factor (0-10 points for having many votes)
+      finalScore += Math.min(10, Math.log10((movie.vote_count || 0) + 1));
+      
+      // Add recency bonus (0-15 points for newer movies)
+      const releaseYear = movie.release_date ? new Date(movie.release_date).getFullYear() : 0;
+      const currentYear = new Date().getFullYear();
+      const yearDiff = Math.max(0, Math.min(30, currentYear - releaseYear));
+      finalScore += Math.max(0, 15 - yearDiff * 0.5); // Newer movies get up to 15 points
+      
+      // Add title similarity bonus for franchise movies
+      if (movie.title && seriesTitle && 
+          (movie.title.toLowerCase().includes(seriesTitle.toLowerCase()) || 
+           seriesTitle.toLowerCase().includes(movie.title.toLowerCase()))) {
+        finalScore += 40; // Significant bonus for title similarity
+      }
+      
+      return {
+        ...movie,
+        finalScore
+      };
+    });
+    
+    // Sort by final score
+    const sortedMovies = scoredMovies.sort((a, b) => b.finalScore - a.finalScore);
+    
     // Map the results (limit to maximum 24 movies for performance)
-    return relevantMovies.slice(0, 24).map((movie: any) => ({
+    // Build the final movie objects with all needed data
+    return sortedMovies.slice(0, 24).map((movie: any) => ({
       id: movie.id,
       title: movie.title,
       release_date: movie.release_date,
@@ -221,7 +381,10 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
       vote_average: movie.vote_average,
       overview: movie.overview,
       vote_count: movie.vote_count,
-      popularity: movie.popularity
+      popularity: movie.popularity,
+      genres: movie.genres,
+      source: movie.source,
+      score: movie.finalScore
     }));
   } catch (error) {
     console.error('Error fetching similar movies:', error);
