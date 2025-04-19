@@ -5,7 +5,12 @@ import { Input } from '@/components/ui/input';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { CheckCheck } from 'lucide-react';
-import { getMoviesByGenre, getSimilarMovies, type Movie } from '@/services/movieService';
+import { 
+  getMoviesByGenre, 
+  getSimilarMovies, 
+  getFallbackMovies, 
+  type Movie 
+} from '@/services/movieService';
 
 interface MovieSearchProps {
   selectedGenre: string;
@@ -32,20 +37,36 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [movies, setMovies] = useState<Movie[]>([]);
   const [similarMovies, setSimilarMovies] = useState<Movie[]>([]);
+  const [apiError, setApiError] = useState(false);
 
   useEffect(() => {
     const fetchMovies = async () => {
       try {
+        setIsLoading(true);
+        setApiError(false);
+        
         const genreId = genreIds[selectedGenre];
+        let fetchedMovies: Movie[] = [];
+        
         if (genreId) {
-          setIsLoading(true);
-          const fetchedMovies = await getMoviesByGenre(genreId);
-          setMovies(fetchedMovies);
-          setIsLoading(false);
+          fetchedMovies = await getMoviesByGenre(genreId);
         }
+        
+        if (fetchedMovies.length === 0) {
+          // If the API returns no movies, use fallbacks
+          console.log('Using fallback movies for', selectedGenre);
+          fetchedMovies = getFallbackMovies(selectedGenre);
+          setApiError(true);
+          toast.error('Could not connect to the movie database API. Using sample data instead.');
+        }
+        
+        setMovies(fetchedMovies);
       } catch (error) {
         console.error('Error fetching movies:', error);
-        toast.error('Failed to load movies');
+        setApiError(true);
+        setMovies(getFallbackMovies(selectedGenre));
+        toast.error('Failed to load movies from the API. Using sample data instead.');
+      } finally {
         setIsLoading(false);
       }
     };
@@ -66,15 +87,36 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
     
     setIsLoading(true);
     try {
-      const similar = await getSimilarMovies(selectedMovie.id);
+      let similar: Movie[] = [];
+      
+      if (apiError) {
+        similar = getFallbackMovies(selectedGenre).filter(m => m.id !== selectedMovie.id);
+      } else {
+        similar = await getSimilarMovies(selectedMovie.id);
+      }
+      
+      if (similar.length === 0) {
+        similar = getFallbackMovies(selectedGenre);
+        toast.warning('No similar movies found. Showing some recommendations instead.');
+      } else {
+        toast.success('Found similar movies for you!');
+      }
+      
       setSimilarMovies(similar);
       setShowRecommendations(true);
-      toast.success('Found similar movies for you!');
     } catch (error) {
       toast.error('Failed to fetch similar movies');
+      setSimilarMovies(getFallbackMovies(selectedGenre));
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const getPosterUrl = (path: string) => {
+    if (path.startsWith('/')) {
+      return `https://image.tmdb.org/t/p/w500${path}`;
+    }
+    return path; // Use as-is for fallback images
   };
 
   return (
@@ -83,7 +125,13 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
         You picked {selectedGenre}
       </h2>
       
-      {!showRecommendations ? (
+      {isLoading && (
+        <div className="w-full text-center py-8">
+          <p className="text-[#F5F5F5]">Loading movies...</p>
+        </div>
+      )}
+      
+      {!isLoading && !showRecommendations ? (
         <div className="w-full max-w-md space-y-4">
           <Input
             type="text"
@@ -98,7 +146,7 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
               Popular {selectedGenre} Movies:
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {movies.map((movie, index) => (
+              {movies && movies.map((movie, index) => (
                 <motion.div
                   key={movie.id}
                   initial={{ opacity: 0, y: 10 }}
@@ -110,13 +158,19 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
                   <div className={`p-3 rounded-lg transition-all duration-200 ${selectedMovie?.id === movie.id ? 'bg-[#3A3A3A] ring-2 ring-[#8B5CF6]' : 'bg-[#1E1E1E] hover:bg-[#2A2A2A]'}`}>
                     <div className="flex gap-3">
                       <img 
-                        src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
+                        src={getPosterUrl(movie.poster_path)}
                         alt={movie.title}
                         className="w-16 h-24 object-cover rounded"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = '/placeholder.svg';
+                        }}
                       />
                       <div className="flex flex-col justify-center">
                         <p className="text-[#F5F5F5] font-medium">{movie.title}</p>
-                        <p className="text-[#AAAAAA]">{new Date(movie.release_date).getFullYear()}</p>
+                        <p className="text-[#AAAAAA]">
+                          {movie.release_date ? new Date(movie.release_date).getFullYear() : 'Unknown'}
+                        </p>
                         <p className="text-[#AAAAAA] text-sm">Rating: {movie.vote_average.toFixed(1)}/10</p>
                       </div>
                     </div>
@@ -135,13 +189,19 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
               <h3 className="text-[#F5F5F5] text-lg font-semibold mb-2">Selected Movie:</h3>
               <div className="flex items-center gap-4">
                 <img 
-                  src={`https://image.tmdb.org/t/p/w500${selectedMovie.poster_path}`}
+                  src={getPosterUrl(selectedMovie.poster_path)}
                   alt={selectedMovie.title}
                   className="w-20 h-28 object-cover rounded"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = '/placeholder.svg';
+                  }}
                 />
                 <div>
                   <p className="text-[#F5F5F5] font-medium">{selectedMovie.title}</p>
-                  <p className="text-[#AAAAAA]">{new Date(selectedMovie.release_date).getFullYear()}</p>
+                  <p className="text-[#AAAAAA]">
+                    {selectedMovie.release_date ? new Date(selectedMovie.release_date).getFullYear() : 'Unknown'}
+                  </p>
                   <p className="text-[#AAAAAA] text-sm">Rating: {selectedMovie.vote_average.toFixed(1)}/10</p>
                 </div>
               </div>
@@ -160,7 +220,7 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
             </motion.div>
           )}
         </div>
-      ) : (
+      ) : !isLoading && (
         <div className="w-full max-w-4xl">
           <motion.div
             initial={{ opacity: 0 }}
@@ -168,13 +228,22 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
             className="mb-6 p-4 bg-[#2A2A2A] rounded-lg flex gap-4 items-center"
           >
             <img 
-              src={`https://image.tmdb.org/t/p/w500${selectedMovie?.poster_path}`}
+              src={getPosterUrl(selectedMovie?.poster_path || '')}
               alt={selectedMovie?.title}
               className="w-20 h-28 object-cover rounded"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = '/placeholder.svg';
+              }}
             />
             <div>
               <h3 className="text-[#F5F5F5] text-lg font-semibold">Based on your selection:</h3>
-              <p className="text-[#F5F5F5] font-medium">{selectedMovie?.title} ({selectedMovie?.release_date && new Date(selectedMovie.release_date).getFullYear()})</p>
+              <p className="text-[#F5F5F5] font-medium">
+                {selectedMovie?.title} 
+                {selectedMovie?.release_date && 
+                  ` (${new Date(selectedMovie.release_date).getFullYear()})`
+                }
+              </p>
             </div>
           </motion.div>
 
@@ -190,9 +259,13 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
                 className="bg-[#1E1E1E] rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:translate-y-[-4px]"
               >
                 <img 
-                  src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
+                  src={getPosterUrl(movie.poster_path)}
                   alt={movie.title}
                   className="w-full h-48 object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = '/placeholder.svg';
+                  }}
                 />
                 <div className="p-4">
                   <div className="flex justify-between items-start mb-2">
@@ -201,7 +274,9 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
                       {movie.vote_average.toFixed(1)}/10
                     </span>
                   </div>
-                  <p className="text-[#AAAAAA]">{new Date(movie.release_date).getFullYear()}</p>
+                  <p className="text-[#AAAAAA]">
+                    {movie.release_date ? new Date(movie.release_date).getFullYear() : 'Unknown'}
+                  </p>
                   <p className="text-[#CCCCCC] mt-2 text-sm line-clamp-3">
                     {movie.overview}
                   </p>
@@ -225,4 +300,3 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
     </div>
   );
 };
-
