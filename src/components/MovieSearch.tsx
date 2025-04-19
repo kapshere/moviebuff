@@ -144,41 +144,43 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
   const sortedSimilarMovies = useMemo(() => {
     if (!similarMovies.length) return [];
     
-    switch(sortOption) {
-      case 'rating':
-        return [...similarMovies].sort((a, b) => b.vote_average - a.vote_average);
-      case 'year':
-        return [...similarMovies].sort((a, b) => {
+    const getMovieScore = (movie: Movie) => {
+      const genreMatchCount = movie.genres?.filter(g => 
+        selectedMovieDetails?.genres?.some(sg => sg.id === g.id)
+      ).length || 0;
+      
+      return genreMatchCount;
+    };
+
+    const baseSorted = [...similarMovies].sort((a, b) => {
+      const aScore = getMovieScore(a);
+      const bScore = getMovieScore(b);
+      
+      if (aScore !== bScore) {
+        return bScore - aScore;
+      }
+      
+      switch(sortOption) {
+        case 'rating':
+          return b.vote_average - a.vote_average;
+        case 'year':
           const yearA = a.release_date ? new Date(a.release_date).getFullYear() : 0;
           const yearB = b.release_date ? new Date(b.release_date).getFullYear() : 0;
           return yearB - yearA;
-        });
-      case 'genre':
-        return [...similarMovies].sort((a, b) => {
-          if (!selectedMovieDetails?.genres) return 0;
-          
-          const aGenreMatch = a.genres?.filter(g => 
-            selectedMovieDetails.genres?.some(sg => sg.id === g.id)
-          ).length || 0;
-          
-          const bGenreMatch = b.genres?.filter(g => 
-            selectedMovieDetails.genres?.some(sg => sg.id === g.id)
-          ).length || 0;
-          
-          return bGenreMatch - aGenreMatch;
-        });
-      case 'relevance':
-      default:
-        return [...similarMovies].sort((a: any, b: any) => {
+        case 'genre':
+          return bScore - aScore;
+        case 'relevance':
+        default:
           if (a.score !== undefined && b.score !== undefined) {
             return b.score - a.score;
           }
-          
           const scoreA = (a.vote_average * Math.log10((a.vote_count || 1) + 1)) + ((a.popularity || 0) / 100);
           const scoreB = (b.vote_average * Math.log10((b.vote_count || 1) + 1)) + ((b.popularity || 0) / 100);
           return scoreB - scoreA;
-        });
-    }
+      }
+    });
+
+    return baseSorted;
   }, [similarMovies, sortOption, selectedMovieDetails]);
 
   const handleMovieSelect = async (movie: Movie) => {
@@ -732,7 +734,7 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                   />
                 ) : (
                   <div className="w-full h-full bg-[#1A1A1A] flex items-center justify-center">
-                    <ImageOff className="w-10 h-10 text-[#666666]" />
+                    <ImageOff className="w-8 h-8 text-[#666666]" />
                   </div>
                 )}
               </div>
