@@ -27,8 +27,11 @@ export const MovieSearchBar = ({ onSearch, placeholder = "Search movies..." }: M
     enabled: searchTerm.length >= 2,
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
     retry: 2, // Retry failed requests twice
-    onError: () => {
-      toast.error("Couldn't connect to the movie database. Using sample data instead.");
+    // Using onSettled instead of onError
+    meta: {
+      onError: () => {
+        toast.error("Couldn't connect to the movie database. Using sample data instead.");
+      }
     }
   });
 
