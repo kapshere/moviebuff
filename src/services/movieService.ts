@@ -1,3 +1,4 @@
+
 export interface Movie {
   id: number;
   title: string;
@@ -63,7 +64,7 @@ export const getMoviesByGenre = async (genreId: number): Promise<Movie[]> => {
 
 export const searchMovies = async (query: string): Promise<Movie[]> => {
   try {
-    const allMovies: Movie[] = [];
+    let allMovies: Movie[] = [];  // Changed from const to let
     const pagesToFetch = 5;
     
     const isHangoverSearch = query.toLowerCase().includes("hangover") && 
@@ -446,7 +447,7 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
       }
     });
     
-    const uniqueMovies = Array.from(uniqueMoviesMap.values());
+    let uniqueMovies = Array.from(uniqueMoviesMap.values());  // Changed from const to let
     
     uniqueMovies = uniqueMovies.filter(movie => movie.id !== movieId);
     
