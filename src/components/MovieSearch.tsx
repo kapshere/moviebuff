@@ -168,12 +168,10 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
   const filteredSimilarMovies = useMemo(() => {
     if (!similarMovies.length) return [];
     
-    // First apply source filter if active
     let filtered = filterSource 
       ? similarMovies.filter(movie => (movie as any).source === filterSource)
       : similarMovies;
       
-    // Then apply search filter if there's a query
     if (searchQuery.trim()) {
       filtered = filtered.filter(movie => 
         movie.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -195,7 +193,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
     };
 
     return [...filteredSimilarMovies].sort((a, b) => {
-      // If we have similarity scores from the API, use them first
       if ('similarityScore' in a && 'similarityScore' in b) {
         const scoreDiff = (b.similarityScore as number) - (a.similarityScore as number);
         if (scoreDiff !== 0) return scoreDiff;
@@ -217,7 +214,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
           return (b.popularity || 0) - (a.popularity || 0);
         case 'relevance':
         default:
-          // Complex score combining multiple factors
           if (aScore !== bScore) {
             return bScore - aScore;
           }
@@ -229,7 +225,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
             return (b.similarityScore as number) - (a.similarityScore as number);
           }
           
-          // Weighted score combining rating, votes, and popularity
           const scoreA = (a.vote_average * Math.log10((a.vote_count || 1) + 1)) + ((a.popularity || 0) / 100);
           const scoreB = (b.vote_average * Math.log10((b.vote_count || 1) + 1)) + ((b.popularity || 0) / 100);
           return scoreB - scoreA;
