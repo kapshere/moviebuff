@@ -58,6 +58,7 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
         let fetchedMovies: Movie[] = [];
         
         if (selectedGenre === 'Search' && directSearchQuery) {
+          console.log('Searching for movies like:', directSearchQuery);
           fetchedMovies = await searchMovies(directSearchQuery);
           
           if (fetchedMovies.length > 0) {
@@ -75,6 +76,8 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
               setIsLoading(false);
               return;
             }
+          } else {
+            toast.error(`No movies found matching "${directSearchQuery}". Try a different search.`);
           }
         } else if (selectedGenre === 'Top') {
           fetchedMovies = await getTopIMDBMovies();
@@ -90,6 +93,8 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
           fetchedMovies = getFallbackMovies(selectedGenre);
           setApiError(true);
           toast.error('Could not connect to the movie database API. Using sample data instead.');
+        } else {
+          console.log(`Loaded ${fetchedMovies.length} movies for ${selectedGenre}`);
         }
         
         setMovies(fetchedMovies);
@@ -556,8 +561,8 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                 <div className="w-20 h-28 relative rounded shadow-lg overflow-hidden">
                   {selectedMovie.poster_path ? (
                     <img 
-                      src={getPosterUrl(selectedMovie.poster_path)}
-                      alt={selectedMovie.title}
+                      src={getPosterUrl(selectedMovie?.poster_path)}
+                      alt={selectedMovie?.title}
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;

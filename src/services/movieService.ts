@@ -31,20 +31,31 @@ export const getGenres = async (): Promise<Genre[]> => {
 
 export const getMoviesByGenre = async (genreId: number): Promise<Movie[]> => {
   try {
-    const response = await fetch(
-      `${BASE_URL}/discover/movie?api_key=${API_KEY}&with_genres=${genreId}&sort_by=popularity.desc&vote_count.gte=1000&language=en-US`
-    );
-    const data = await response.json();
-    return data.results.map((movie: any) => ({
-      id: movie.id,
-      title: movie.title,
-      release_date: movie.release_date,
-      poster_path: movie.poster_path,
-      vote_average: movie.vote_average,
-      overview: movie.overview,
-      popularity: movie.popularity,
-      vote_count: movie.vote_count
-    }));
+    // Fetch multiple pages to get more movies
+    const movies: Movie[] = [];
+    const pagesToFetch = 3;
+    
+    for (let page = 1; page <= pagesToFetch; page++) {
+      const response = await fetch(
+        `${BASE_URL}/discover/movie?api_key=${API_KEY}&with_genres=${genreId}&sort_by=popularity.desc&vote_count.gte=100&language=en-US&page=${page}`
+      );
+      const data = await response.json();
+      
+      const pageMovies = data.results.map((movie: any) => ({
+        id: movie.id,
+        title: movie.title,
+        release_date: movie.release_date,
+        poster_path: movie.poster_path,
+        vote_average: movie.vote_average,
+        overview: movie.overview,
+        popularity: movie.popularity,
+        vote_count: movie.vote_count
+      }));
+      
+      movies.push(...pageMovies);
+    }
+    
+    return movies;
   } catch (error) {
     console.error('Error fetching movies:', error);
     return [];
@@ -53,11 +64,13 @@ export const getMoviesByGenre = async (genreId: number): Promise<Movie[]> => {
 
 export const searchMovies = async (query: string): Promise<Movie[]> => {
   try {
-    const response = await fetch(
+    // First try exact search
+    const directResponse = await fetch(
       `${BASE_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(query)}&language=en-US&page=1`
     );
-    const data = await response.json();
-    return data.results.map((movie: any) => ({
+    const directData = await directResponse.json();
+    
+    let movies = directData.results.map((movie: any) => ({
       id: movie.id,
       title: movie.title,
       release_date: movie.release_date,
@@ -67,6 +80,46 @@ export const searchMovies = async (query: string): Promise<Movie[]> => {
       popularity: movie.popularity,
       vote_count: movie.vote_count
     }));
+    
+    // If we don't have enough results, search for additional movies with partial matching
+    if (movies.length < 5) {
+      const words = query.split(' ');
+      if (words.length > 1) {
+        // Try searching with just the first word which might be a title (like "Hangover")
+        const broadResponse = await fetch(
+          `${BASE_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(words[0])}&language=en-US&page=1`
+        );
+        const broadData = await broadResponse.json();
+        
+        const additionalMovies = broadData.results
+          .filter((movie: any) => !movies.some(m => m.id === movie.id)) // Deduplicate
+          .map((movie: any) => ({
+            id: movie.id,
+            title: movie.title,
+            release_date: movie.release_date,
+            poster_path: movie.poster_path,
+            vote_average: movie.vote_average,
+            overview: movie.overview,
+            popularity: movie.popularity,
+            vote_count: movie.vote_count
+          }));
+        
+        movies = [...movies, ...additionalMovies];
+      }
+    }
+    
+    // Sort by relevance and popularity
+    return movies.sort((a, b) => {
+      // Check if title contains exact query for higher relevance
+      const aHasExactMatch = a.title.toLowerCase().includes(query.toLowerCase());
+      const bHasExactMatch = b.title.toLowerCase().includes(query.toLowerCase());
+      
+      if (aHasExactMatch && !bHasExactMatch) return -1;
+      if (!aHasExactMatch && bHasExactMatch) return 1;
+      
+      // Otherwise sort by popularity
+      return b.popularity - a.popularity;
+    });
   } catch (error) {
     console.error('Error searching movies:', error);
     return [];
@@ -109,22 +162,42 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
       throw new Error("Could not fetch movie details");
     }
     
-    // Get similar movies
-    const similarResponse = await fetch(
-      `${BASE_URL}/movie/${movieId}/similar?api_key=${API_KEY}&language=en-US&page=1`
-    );
-    const similarData = await similarResponse.json();
+    // Get similar movies (2 pages)
+    const similarMovies: any[] = [];
+    for (let page = 1; page <= 2; page++) {
+      const similarResponse = await fetch(
+        `${BASE_URL}/movie/${movieId}/similar?api_key=${API_KEY}&language=en-US&page=${page}`
+      );
+      const similarData = await similarResponse.json();
+      similarMovies.push(...similarData.results);
+    }
     
-    // Get recommendations
-    const recommendResponse = await fetch(
-      `${BASE_URL}/movie/${movieId}/recommendations?api_key=${API_KEY}&language=en-US&page=1`
-    );
-    const recommendData = await recommendResponse.json();
+    // Get recommendations (2 pages)
+    const recommendMovies: any[] = [];
+    for (let page = 1; page <= 2; page++) {
+      const recommendResponse = await fetch(
+        `${BASE_URL}/movie/${movieId}/recommendations?api_key=${API_KEY}&language=en-US&page=${page}`
+      );
+      const recommendData = await recommendResponse.json();
+      recommendMovies.push(...recommendData.results);
+    }
     
-    // Combine the two lists, but prioritize movies with higher vote counts
+    // If the movie has genres, also fetch top movies from those genres
+    let genreMovies: any[] = [];
+    if (movieDetails.genres && movieDetails.genres.length > 0) {
+      const primaryGenre = movieDetails.genres[0].id;
+      const genreResponse = await fetch(
+        `${BASE_URL}/discover/movie?api_key=${API_KEY}&with_genres=${primaryGenre}&sort_by=popularity.desc&vote_count.gte=100&language=en-US&page=1`
+      );
+      const genreData = await genreResponse.json();
+      genreMovies = genreData.results.filter((m: any) => m.id !== movieId);
+    }
+    
+    // Combine all movie lists
     let combinedMovies = [
-      ...similarData.results,
-      ...recommendData.results
+      ...similarMovies,
+      ...recommendMovies,
+      ...genreMovies
     ];
     
     // Remove duplicates
@@ -139,8 +212,8 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
       return scoreB - scoreA;
     });
     
-    // Map the results
-    return relevantMovies.map((movie: any) => ({
+    // Map the results (limit to maximum 24 movies for performance)
+    return relevantMovies.slice(0, 24).map((movie: any) => ({
       id: movie.id,
       title: movie.title,
       release_date: movie.release_date,
@@ -156,30 +229,39 @@ export const getSimilarMovies = async (movieId: number): Promise<Movie[]> => {
   }
 };
 
-// Get top rated IMDB movies
 export const getTopIMDBMovies = async (): Promise<Movie[]> => {
   try {
-    const response = await fetch(
-      `${BASE_URL}/movie/top_rated?api_key=${API_KEY}&language=en-US&page=1`
-    );
-    const data = await response.json();
-    return data.results.map((movie: any) => ({
-      id: movie.id,
-      title: movie.title,
-      release_date: movie.release_date,
-      poster_path: movie.poster_path,
-      vote_average: movie.vote_average,
-      overview: movie.overview,
-      popularity: movie.popularity,
-      vote_count: movie.vote_count
-    }));
+    // Fetch multiple pages to get more movies
+    const movies: Movie[] = [];
+    const pagesToFetch = 3;
+    
+    for (let page = 1; page <= pagesToFetch; page++) {
+      const response = await fetch(
+        `${BASE_URL}/movie/top_rated?api_key=${API_KEY}&language=en-US&page=${page}`
+      );
+      const data = await response.json();
+      
+      const pageMovies = data.results.map((movie: any) => ({
+        id: movie.id,
+        title: movie.title,
+        release_date: movie.release_date,
+        poster_path: movie.poster_path,
+        vote_average: movie.vote_average,
+        overview: movie.overview,
+        popularity: movie.popularity,
+        vote_count: movie.vote_count
+      }));
+      
+      movies.push(...pageMovies);
+    }
+    
+    return movies;
   } catch (error) {
     console.error('Error fetching top IMDB movies:', error);
     return [];
   }
 };
 
-// In case of API failure, provide some sample movies
 export const getFallbackMovies = (genre: string): Movie[] => {
   const fallbackMovies = [
     {
