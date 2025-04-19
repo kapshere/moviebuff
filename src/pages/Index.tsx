@@ -4,6 +4,7 @@ import { LoadingScreen } from '@/components/LoadingScreen';
 import { OnboardingTip } from '@/components/OnboardingTip';
 import { GenreGrid } from '@/components/GenreGrid';
 import { MovieSearch } from '@/components/MovieSearch';
+import { toast } from 'sonner';
 
 const Index = () => {
   const [showLoading, setShowLoading] = useState(true);
@@ -23,17 +24,29 @@ const Index = () => {
   };
 
   const handleGenreSelect = (genre: string) => {
-    console.log('Selected genre:', genre);
     setSelectedGenre(genre);
     setShowGenres(false);
     setShowMovieSearch(true);
+    toast.success(`Looking for ${genre} movies! 🎬`);
+  };
+
+  const handleDirectSearch = (query: string) => {
+    setSelectedGenre('Search');
+    setShowGenres(false);
+    setShowMovieSearch(true);
+    toast.success(`Searching for movies like "${query}" 🔍`);
   };
 
   return (
     <div className="min-h-screen bg-[#121212]">
       {showLoading && <LoadingScreen onComplete={handleLoadingComplete} />}
       {showOnboarding && <OnboardingTip onDismiss={handleOnboardingDismiss} />}
-      {showGenres && <GenreGrid onGenreSelect={handleGenreSelect} />}
+      {showGenres && (
+        <GenreGrid 
+          onGenreSelect={handleGenreSelect} 
+          onDirectSearch={handleDirectSearch}
+        />
+      )}
       {showMovieSearch && <MovieSearch selectedGenre={selectedGenre} />}
     </div>
   );
