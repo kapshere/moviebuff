@@ -32,6 +32,17 @@ export const MovieSearchBar = ({ onSearch, placeholder = "Search movies..." }: M
     setSearchTerm('');
   };
 
+  const getMoviePosterUrl = (posterPath: string | null) => {
+    return posterPath
+      ? `https://image.tmdb.org/t/p/w92${posterPath}`
+      : '/placeholder.svg';
+  };
+
+  // Function to format release year
+  const formatReleaseYear = (releaseDate: string) => {
+    return releaseDate ? ` (${new Date(releaseDate).getFullYear()})` : '';
+  };
+
   return (
     <div className="relative w-full max-w-xl mx-auto">
       <Command className="rounded-lg border shadow-md bg-[#1E1E1E]">
@@ -53,15 +64,24 @@ export const MovieSearchBar = ({ onSearch, placeholder = "Search movies..." }: M
               {suggestions.slice(0, 8).map((movie) => (
                 <CommandItem
                   key={movie.id}
-                  value={movie.title}
+                  value={`${movie.title}${formatReleaseYear(movie.release_date)}`}
                   onSelect={handleSelect}
-                  className="flex items-center px-2 py-3 cursor-pointer hover:bg-[#333333] text-[#F5F5F5]"
+                  className="flex items-center gap-3 px-2 py-3 cursor-pointer hover:bg-[#333333] text-[#F5F5F5]"
                 >
+                  <img
+                    src={getMoviePosterUrl(movie.poster_path)}
+                    alt={movie.title}
+                    className="w-12 h-16 object-cover rounded"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = '/placeholder.svg';
+                    }}
+                  />
                   <div className="flex flex-col">
                     <span className="font-medium">{movie.title}</span>
                     {movie.release_date && (
                       <span className="text-xs text-[#666666]">
-                        {new Date(movie.release_date).getFullYear()}
+                        {formatReleaseYear(movie.release_date)}
                       </span>
                     )}
                   </div>
