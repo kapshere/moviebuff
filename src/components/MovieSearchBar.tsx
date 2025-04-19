@@ -10,13 +10,15 @@ interface MovieSearchBarProps {
   placeholder?: string;
   initialValue?: string;
   showRecent?: boolean;
+  genre?: string;
 }
 
 export const MovieSearchBar = ({ 
   onSearch, 
   placeholder = 'Search for movies...', 
   initialValue = '',
-  showRecent = true
+  showRecent = true,
+  genre
 }: MovieSearchBarProps) => {
   const [searchQuery, setSearchQuery] = useState(initialValue);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -71,7 +73,7 @@ export const MovieSearchBar = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={placeholder}
+            placeholder={genre ? `Search in ${genre}...` : placeholder}
             className="pl-10 bg-[#1A1A1A] border-[#333333] text-[#E0E0E0]"
           />
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#666666] h-4 w-4" />

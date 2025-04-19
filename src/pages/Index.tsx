@@ -5,6 +5,7 @@ import { OnboardingTip } from '@/components/OnboardingTip';
 import { GenreGrid } from '@/components/GenreGrid';
 import { MovieSearch } from '@/components/MovieSearch';
 import { toast } from 'sonner';
+import { MovieSearchBar } from '@/components/MovieSearchBar';
 
 const Index = () => {
   const [showLoading, setShowLoading] = useState(true);
@@ -40,6 +41,20 @@ const Index = () => {
     toast.success(`Searching for movies like "${query}" 🔍`);
   };
 
+  const handleBackToGenres = () => {
+    setShowGenres(true);
+    setShowMovieSearch(false);
+  };
+
+  const handleGenreSearch = (query: string) => {
+    if (selectedGenre === 'Search') {
+      handleDirectSearch(query);
+    } else {
+      setDirectSearchQuery(query);
+      toast.success(`Searching for ${query} in ${selectedGenre} movies 🔍`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#121212]">
       {showLoading && <LoadingScreen onComplete={handleLoadingComplete} />}
@@ -51,10 +66,38 @@ const Index = () => {
         />
       )}
       {showMovieSearch && (
-        <MovieSearch 
-          selectedGenre={selectedGenre} 
-          directSearchQuery={directSearchQuery}
-        />
+        <>
+          <div className="p-6 space-y-6">
+            <div className="flex items-center justify-between mb-4">
+              <button 
+                onClick={handleBackToGenres}
+                className="text-[#8B5CF6] hover:text-[#7C3AED] flex items-center gap-1"
+              >
+                ← Back to Genres
+              </button>
+              <h2 className="text-2xl font-bold text-[#F5F5F5]">
+                {selectedGenre === 'Search' 
+                  ? `Movies like "${directSearchQuery}"` 
+                  : `${selectedGenre} Movies`}
+              </h2>
+              <div className="w-20" />
+            </div>
+            
+            <MovieSearchBar 
+              onSearch={handleGenreSearch} 
+              initialValue={directSearchQuery} 
+              placeholder={selectedGenre === 'Search' 
+                ? "Search for similar movies..." 
+                : `Search in ${selectedGenre} movies...`} 
+              genre={selectedGenre}
+            />
+          </div>
+          
+          <MovieSearch 
+            selectedGenre={selectedGenre} 
+            directSearchQuery={directSearchQuery}
+          />
+        </>
       )}
     </div>
   );
