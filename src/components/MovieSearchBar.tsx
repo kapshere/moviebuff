@@ -48,7 +48,6 @@ export const MovieSearchBar = ({
     localStorage.setItem('recentMovieSearches', JSON.stringify(updatedSearches));
     
     onSearch(trimmedQuery);
-    console.log("Search submitted with query:", trimmedQuery);
   };
   
   const filteredRecentSearches = useMemo(() => {

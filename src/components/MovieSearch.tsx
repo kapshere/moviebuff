@@ -278,8 +278,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
         similar = await getSimilarMovies(selectedMovie.id);
       }
       
-      console.log(`Received ${similar.length} similar movies:`, similar.slice(0, 3));
-      
       if (similar.length === 0) {
         similar = getFallbackMovies(selectedGenre);
         toast.warning('No similar movies found. Showing some recommendations instead.');
@@ -305,8 +303,8 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
     } catch (error) {
       console.error('Failed to fetch similar movies:', error);
       toast.error('Failed to fetch similar movies');
-      const fallbackMovies = getFallbackMovies(selectedGenre);
-      setSimilarMovies(fallbackMovies);
+      const fallbackData = getFallbackMovies(selectedGenre);
+      setSimilarMovies(fallbackData);
       setShowRecommendations(true);
     } finally {
       setIsLoading(false);
@@ -412,13 +410,11 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
   };
 
   if (showRecommendations && selectedGenre === 'Search' && directSearchQuery) {
-    console.log(`MovieSearch render - showRecommendations: ${showRecommendations}, similarMovies: ${similarMovies.length}, isLoading: ${isLoading}`);
-
     return (
       <div className="p-6 flex flex-col items-center">
         <h2 className="text-2xl font-bold text-[#F5F5F5] mb-6 flex items-center gap-2">
           <Film className="w-6 h-6 text-[#8B5CF6]" />
-          Similar to "{selectedMovie?.title}" 🎬
+          Similar to "{directSearchQuery}" 🎬
         </h2>
         
         {isLoading && (
@@ -624,19 +620,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                 Showing {sortedSimilarMovies.length} 
                 {filterSource ? ` ${getSourceLabel(filterSource)}` : ''} 
                 {searchQuery ? ` matches for "${searchQuery}"` : ' recommendations'}
-              </div>
-            )}
-            
-            {sortedSimilarMovies.length === 0 && !isLoading && (
-              <div className="text-center py-8">
-                <p className="text-[#F5F5F5] mb-4">No movies found matching your criteria.</p>
-                <Button
-                  onClick={refreshRecommendations}
-                  className="bg-[#8B5CF6] hover:bg-[#7C3AED]"
-                >
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Try Different Recommendations
-                </Button>
               </div>
             )}
             
@@ -846,23 +829,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                 ))}
               </div>
             )}
-            
-            <div className="mt-8 flex justify-center">
-              <Button
-                onClick={() => {
-                  setShowRecommendations(false);
-                  setSelectedMovie(null);
-                  setSelectedMovieDetails(null);
-                  setSimilarMovies([]);
-                  setSearchQuery('');
-                  setFilterSource(null);
-                }}
-                className="bg-[#8B5CF6] hover:bg-[#7C3AED]"
-              >
-                <Search className="mr-2 h-4 w-4" />
-                Search Again
-              </Button>
-            </div>
           </div>
         )}
       </div>
@@ -880,7 +846,7 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
               : `Browse ${selectedGenre} Movies`}
         </h2>
         
-        {selectedGenre === 'Search' && !showRecommendations && (
+        {!showRecommendations && selectedGenre === 'Search' && (
           <div className="max-w-xl mx-auto">
             <MovieSearchBar
               onSearch={(query) => {
@@ -897,16 +863,6 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
               }}
               placeholder="Enter a movie title to find similar films..."
             />
-            
-            <div className="flex justify-center mt-4">
-              <Button
-                onClick={handleDone}
-                className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white font-medium"
-                disabled={!selectedMovie}
-              >
-                Find Similar Movies
-              </Button>
-            </div>
           </div>
         )}
       </div>
@@ -986,10 +942,82 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
               ))}
             </div>
           )}
+          
+          {showRecommendations && !isLoading && (
+            <div className="mt-6">
+              <h3 className="text-xl font-bold text-[#F5F5F5] mb-4">Similar Movies</h3>
+              
+              {sortedSimilarMovies.length === 0 ? (
+                <div className="bg-[#1E1E1E] rounded-lg p-6 text-center">
+                  <p className="text-[#F5F5F5]">No similar movies found. Try selecting a different movie.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                  {sortedSimilarMovies.map((movie, index) => (
+                    <motion.div
+                      key={movie.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="bg-[#1E1E1E] rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:translate-y-[-4px]"
+                    >
+                      <div className="h-[400px] relative">
+                        {movie.poster_path ? (
+                          <img 
+                            src={getPosterUrl(movie.poster_path)}
+                            alt={movie.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = '/placeholder.svg';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-[#1A1A1A] flex items-center justify-center">
+                            <ImageOff className="w-12 h-12 text-[#666666]" />
+                          </div>
+                        )}
+                        
+                        <div className="absolute top-2 right-2 bg-[#1E1E1E] bg-opacity-80 rounded-full p-1">
+                          <div className="flex items-center gap-1 px-2 py-1">
+                            <Star className="w-3 h-3 text-[#FFD700] fill-[#FFD700]" />
+                            <span className="text-white text-xs font-bold">{movie.vote_average.toFixed(1)}</span>
+                          </div>
+                        </div>
+                        
+                        {(movie as any).source && (
+                          <div className="absolute top-2 left-2 rounded-full">
+                            <div className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getSourceColor((movie as any).source)}`}>
+                              {getSourceIcon((movie as any).source)}
+                              {getSourceLabel((movie as any).source)}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="p-4">
+                        <h4 className="text-[#F5F5F5] font-bold line-clamp-1">{movie.title}</h4>
+                        <div className="flex justify-between items-center">
+                          <p className="text-[#AAAAAA] flex items-center gap-1">
+                            <CalendarIcon className="w-3 h-3" />
+                            {getYear(movie.release_date)}
+                          </p>
+                        </div>
+                        
+                        <p className="text-[#DDDDDD] mt-2 text-sm line-clamp-3">
+                          {movie.overview}
+                        </p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
       
-      {!showRecommendations && selectedMovie && (
+      {!showRecommendations && !isLoading && selectedMovie && (
         <div className="mt-8 flex justify-center">
           <Button
             onClick={handleDone}
@@ -998,6 +1026,22 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
           >
             <Film className="mr-2 h-5 w-5" />
             Find Similar Movies
+          </Button>
+        </div>
+      )}
+      
+      {showRecommendations && !isLoading && (
+        <div className="mt-8 flex justify-center">
+          <Button
+            onClick={() => {
+              setShowRecommendations(false);
+              setSimilarMovies([]);
+              setSelectedMovie(null);
+            }}
+            size="lg"
+            className="bg-[#333333] hover:bg-[#444444] text-white font-medium px-8"
+          >
+            Search Again
           </Button>
         </div>
       )}
