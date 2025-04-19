@@ -283,6 +283,8 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
         similar = await getSimilarMovies(selectedMovie.id);
       }
       
+      console.log(`Received ${similar.length} similar movies:`, similar.slice(0, 3));
+      
       if (similar.length === 0) {
         similar = getFallbackMovies(selectedGenre);
         toast.warning('No similar movies found. Showing some recommendations instead.');
@@ -308,7 +310,9 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
     } catch (error) {
       console.error('Failed to fetch similar movies:', error);
       toast.error('Failed to fetch similar movies');
-      setSimilarMovies(getFallbackMovies(selectedGenre));
+      const fallbackMovies = getFallbackMovies(selectedGenre);
+      setSimilarMovies(fallbackMovies);
+      setShowRecommendations(true);
     } finally {
       setIsLoading(false);
     }
@@ -413,11 +417,13 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
   };
 
   if (showRecommendations && selectedGenre === 'Search' && directSearchQuery) {
+    console.log(`MovieSearch render - showRecommendations: ${showRecommendations}, similarMovies: ${similarMovies.length}, isLoading: ${isLoading}`);
+
     return (
       <div className="p-6 flex flex-col items-center">
         <h2 className="text-2xl font-bold text-[#F5F5F5] mb-6 flex items-center gap-2">
           <Film className="w-6 h-6 text-[#8B5CF6]" />
-          Similar to "{directSearchQuery}" 🎬
+          Similar to "{selectedMovie?.title}" 🎬
         </h2>
         
         {isLoading && (
@@ -623,6 +629,19 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                 Showing {sortedSimilarMovies.length} 
                 {filterSource ? ` ${getSourceLabel(filterSource)}` : ''} 
                 {searchQuery ? ` matches for "${searchQuery}"` : ' recommendations'}
+              </div>
+            )}
+            
+            {sortedSimilarMovies.length === 0 && !isLoading && (
+              <div className="text-center py-8">
+                <p className="text-[#F5F5F5] mb-4">No movies found matching your criteria.</p>
+                <Button
+                  onClick={refreshRecommendations}
+                  className="bg-[#8B5CF6] hover:bg-[#7C3AED]"
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Try Different Recommendations
+                </Button>
               </div>
             )}
             
@@ -832,6 +851,23 @@ export const MovieSearch = ({ selectedGenre, directSearchQuery }: MovieSearchPro
                 ))}
               </div>
             )}
+            
+            <div className="mt-8 flex justify-center">
+              <Button
+                onClick={() => {
+                  setShowRecommendations(false);
+                  setSelectedMovie(null);
+                  setSelectedMovieDetails(null);
+                  setSimilarMovies([]);
+                  setSearchQuery('');
+                  setFilterSource(null);
+                }}
+                className="bg-[#8B5CF6] hover:bg-[#7C3AED]"
+              >
+                <Search className="mr-2 h-4 w-4" />
+                Search Again
+              </Button>
+            </div>
           </div>
         )}
       </div>
