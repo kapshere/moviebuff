@@ -1,10 +1,9 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { CheckCheck } from 'lucide-react';
+import { CheckCheck, Search, Film, Star } from 'lucide-react';
 import { 
   getMoviesByGenre, 
   getSimilarMovies, 
@@ -12,11 +11,6 @@ import {
   type Movie 
 } from '@/services/movieService';
 
-interface MovieSearchProps {
-  selectedGenre: string;
-}
-
-// Genre ID mapping for TMDB API
 const genreIds: Record<string, number> = {
   'Action': 28,
   'Comedy': 35,
@@ -53,7 +47,6 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
         }
         
         if (fetchedMovies.length === 0) {
-          // If the API returns no movies, use fallbacks
           console.log('Using fallback movies for', selectedGenre);
           fetchedMovies = getFallbackMovies(selectedGenre);
           setApiError(true);
@@ -73,6 +66,13 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
 
     fetchMovies();
   }, [selectedGenre]);
+
+  const filteredMovies = useMemo(() => {
+    if (!movieTitle.trim()) return movies;
+    return movies.filter(movie => 
+      movie.title.toLowerCase().includes(movieTitle.toLowerCase())
+    );
+  }, [movies, movieTitle]);
 
   const handleMovieSelect = (movie: Movie) => {
     setMovieTitle(movie.title);
@@ -121,32 +121,37 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
 
   return (
     <div className="p-6 flex flex-col items-center">
-      <h2 className="text-2xl font-bold text-[#F5F5F5] mb-6">
-        You picked {selectedGenre}
+      <h2 className="text-2xl font-bold text-[#F5F5F5] mb-6 flex items-center gap-2">
+        <Film className="w-6 h-6 text-[#8B5CF6]" />
+        You picked {selectedGenre} 🎬
       </h2>
       
       {isLoading && (
         <div className="w-full text-center py-8">
-          <p className="text-[#F5F5F5]">Loading movies...</p>
+          <p className="text-[#F5F5F5] animate-pulse">Loading amazing movies... ✨</p>
         </div>
       )}
       
       {!isLoading && !showRecommendations ? (
         <div className="w-full max-w-md space-y-4">
-          <Input
-            type="text"
-            placeholder="Type a movie you've seen..."
-            value={movieTitle}
-            onChange={(e) => setMovieTitle(e.target.value)}
-            className="bg-[#1E1E1E] text-[#F5F5F5] border-[#333333]"
-          />
+          <div className="relative">
+            <Input
+              type="text"
+              placeholder="Search movies..."
+              value={movieTitle}
+              onChange={(e) => setMovieTitle(e.target.value)}
+              className="bg-[#1E1E1E] text-[#F5F5F5] border-[#333333] pl-10"
+            />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#666666] w-4 h-4" />
+          </div>
 
           <div className="mt-6 space-y-4">
-            <h3 className="text-[#F5F5F5] text-lg font-semibold mb-2">
+            <h3 className="text-[#F5F5F5] text-lg font-semibold mb-2 flex items-center gap-2">
+              <Star className="w-5 h-5 text-[#FFD700]" />
               Popular {selectedGenre} Movies:
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {movies && movies.map((movie, index) => (
+              {filteredMovies.map((movie, index) => (
                 <motion.div
                   key={movie.id}
                   initial={{ opacity: 0, y: 10 }}
@@ -155,23 +160,32 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
                   className="cursor-pointer"
                   onClick={() => handleMovieSelect(movie)}
                 >
-                  <div className={`p-3 rounded-lg transition-all duration-200 ${selectedMovie?.id === movie.id ? 'bg-[#3A3A3A] ring-2 ring-[#8B5CF6]' : 'bg-[#1E1E1E] hover:bg-[#2A2A2A]'}`}>
+                  <div className={`p-3 rounded-lg transition-all duration-200 ${
+                    selectedMovie?.id === movie.id 
+                      ? 'bg-[#3A3A3A] ring-2 ring-[#8B5CF6] transform scale-105' 
+                      : 'bg-[#1E1E1E] hover:bg-[#2A2A2A] hover:transform hover:scale-102'
+                  }`}>
                     <div className="flex gap-3">
                       <img 
                         src={getPosterUrl(movie.poster_path)}
                         alt={movie.title}
-                        className="w-16 h-24 object-cover rounded"
+                        className="w-16 h-24 object-cover rounded shadow-lg"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
                           target.src = '/placeholder.svg';
                         }}
                       />
-                      <div className="flex flex-col justify-center">
-                        <p className="text-[#F5F5F5] font-medium">{movie.title}</p>
-                        <p className="text-[#AAAAAA]">
-                          {movie.release_date ? new Date(movie.release_date).getFullYear() : 'Unknown'}
-                        </p>
-                        <p className="text-[#AAAAAA] text-sm">Rating: {movie.vote_average.toFixed(1)}/10</p>
+                      <div className="flex flex-col justify-between py-1">
+                        <div>
+                          <p className="text-[#F5F5F5] font-medium line-clamp-2">{movie.title}</p>
+                          <p className="text-[#AAAAAA] text-sm">
+                            {movie.release_date ? new Date(movie.release_date).getFullYear() : 'Unknown'} 📅
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 text-[#FFD700]">
+                          <Star className="w-4 h-4 fill-current" />
+                          <span className="text-sm">{movie.vote_average.toFixed(1)}/10</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -184,14 +198,17 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mt-6 p-4 bg-[#2A2A2A] rounded-lg"
+              className="mt-4 p-4 bg-[#2A2A2A] rounded-lg border border-[#3A3A3A]"
             >
-              <h3 className="text-[#F5F5F5] text-lg font-semibold mb-2">Selected Movie:</h3>
+              <h3 className="text-[#F5F5F5] text-lg font-semibold mb-2 flex items-center gap-2">
+                <CheckCheck className="w-5 h-5 text-[#10B981]" />
+                Selected Movie:
+              </h3>
               <div className="flex items-center gap-4">
                 <img 
                   src={getPosterUrl(selectedMovie.poster_path)}
                   alt={selectedMovie.title}
-                  className="w-20 h-28 object-cover rounded"
+                  className="w-20 h-28 object-cover rounded shadow-lg"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.src = '/placeholder.svg';
@@ -200,9 +217,12 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
                 <div>
                   <p className="text-[#F5F5F5] font-medium">{selectedMovie.title}</p>
                   <p className="text-[#AAAAAA]">
-                    {selectedMovie.release_date ? new Date(selectedMovie.release_date).getFullYear() : 'Unknown'}
+                    {selectedMovie.release_date ? new Date(selectedMovie.release_date).getFullYear() : 'Unknown'} 📅
                   </p>
-                  <p className="text-[#AAAAAA] text-sm">Rating: {selectedMovie.vote_average.toFixed(1)}/10</p>
+                  <div className="flex items-center gap-1 text-[#FFD700] mt-1">
+                    <Star className="w-4 h-4 fill-current" />
+                    <span className="text-sm">{selectedMovie.vote_average.toFixed(1)}/10</span>
+                  </div>
                 </div>
               </div>
               <Button 
@@ -210,10 +230,10 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
                 className="w-full mt-4 bg-[#10B981] hover:bg-[#059669] text-white flex items-center justify-center gap-2"
                 disabled={isLoading}
               >
-                {isLoading ? 'Finding similar movies...' : (
+                {isLoading ? 'Finding similar movies... 🔍' : (
                   <>
                     <CheckCheck size={18} />
-                    Done - Find Similar Movies
+                    Find Similar Movies ✨
                   </>
                 )}
               </Button>
@@ -230,7 +250,7 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
             <img 
               src={getPosterUrl(selectedMovie?.poster_path || '')}
               alt={selectedMovie?.title}
-              className="w-20 h-28 object-cover rounded"
+              className="w-20 h-28 object-cover rounded shadow-lg"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 target.src = '/placeholder.svg';
