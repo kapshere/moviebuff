@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,22 +45,15 @@ const moviesByGenre: Record<string, { title: string; year: number; poster: strin
 
 export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
   const [movieTitle, setMovieTitle] = useState('');
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState<{ title: string; year: number; poster: string; id: string } | null>(null);
   const [showRecommendations, setShowRecommendations] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const genreMovies = moviesByGenre[selectedGenre] || [];
 
-  const handleSearch = () => {
-    console.log('Searching for similar movies to:', movieTitle, 'in genre:', selectedGenre);
-    setShowSuggestions(true);
-  };
-
   const handleMovieSelect = (movie: { title: string; year: number; poster: string; id: string }) => {
     setMovieTitle(movie.title);
     setSelectedMovie(movie);
-    setShowSuggestions(false);
   };
 
   const handleDone = () => {
@@ -80,7 +72,6 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
     }, 1500);
   };
 
-  // Generate similar movies based on the selected movie
   const getSimilarMovies = () => {
     if (!selectedMovie) return [];
     
@@ -110,13 +101,38 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
             onChange={(e) => setMovieTitle(e.target.value)}
             className="bg-[#1E1E1E] text-[#F5F5F5] border-[#333333]"
           />
-          
-          <Button 
-            onClick={handleSearch}
-            className="w-full bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
-          >
-            Search
-          </Button>
+
+          <div className="mt-6 space-y-4">
+            <h3 className="text-[#F5F5F5] text-lg font-semibold mb-2">
+              Popular {selectedGenre} Movies:
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {genreMovies.map((movie, index) => (
+                <motion.div
+                  key={movie.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="cursor-pointer"
+                  onClick={() => handleMovieSelect(movie)}
+                >
+                  <div className={`p-3 rounded-lg transition-all duration-200 ${selectedMovie?.id === movie.id ? 'bg-[#3A3A3A] ring-2 ring-[#8B5CF6]' : 'bg-[#1E1E1E] hover:bg-[#2A2A2A]'}`}>
+                    <div className="flex gap-3">
+                      <img 
+                        src={movie.poster} 
+                        alt={movie.title}
+                        className="w-16 h-24 object-cover rounded"
+                      />
+                      <div className="flex flex-col justify-center">
+                        <p className="text-[#F5F5F5] font-medium">{movie.title}</p>
+                        <p className="text-[#AAAAAA]">{movie.year}</p>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
 
           {selectedMovie && (
             <motion.div
@@ -149,40 +165,6 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
                 )}
               </Button>
             </motion.div>
-          )}
-
-          {showSuggestions && (
-            <div className="mt-6 space-y-4">
-              <h3 className="text-[#F5F5F5] text-lg font-semibold mb-2">
-                Popular {selectedGenre} Movies:
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {genreMovies.map((movie, index) => (
-                  <motion.div
-                    key={movie.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="cursor-pointer"
-                    onClick={() => handleMovieSelect(movie)}
-                  >
-                    <div className={`p-3 rounded-lg transition-all duration-200 ${selectedMovie?.id === movie.id ? 'bg-[#3A3A3A] ring-2 ring-[#8B5CF6]' : 'bg-[#1E1E1E] hover:bg-[#2A2A2A]'}`}>
-                      <div className="flex gap-3">
-                        <img 
-                          src={movie.poster} 
-                          alt={movie.title}
-                          className="w-16 h-24 object-cover rounded"
-                        />
-                        <div className="flex flex-col justify-center">
-                          <p className="text-[#F5F5F5] font-medium">{movie.title}</p>
-                          <p className="text-[#AAAAAA]">{movie.year}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
           )}
         </div>
       ) : (
