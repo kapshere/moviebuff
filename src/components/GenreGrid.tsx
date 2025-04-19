@@ -53,6 +53,9 @@ const genres = [{
 }, {
   id: 878,
   name: 'Science Fiction 🚀'
+}, {
+  id: 0,
+  name: 'Top IMDB ⭐'
 }];
 
 interface GenreGridProps {
