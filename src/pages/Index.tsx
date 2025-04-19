@@ -1,12 +1,34 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import React, { useState } from 'react';
+import { LoadingScreen } from '@/components/LoadingScreen';
+import { OnboardingTip } from '@/components/OnboardingTip';
+import { GenreGrid } from '@/components/GenreGrid';
 
 const Index = () => {
+  const [showLoading, setShowLoading] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showGenres, setShowGenres] = useState(false);
+
+  const handleLoadingComplete = () => {
+    setShowLoading(false);
+    setShowOnboarding(true);
+  };
+
+  const handleOnboardingDismiss = () => {
+    setShowOnboarding(false);
+    setShowGenres(true);
+  };
+
+  const handleGenreSelect = (genre: string) => {
+    console.log('Selected genre:', genre);
+    // Will implement movie search in the next iteration
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-[#121212]">
+      {showLoading && <LoadingScreen onComplete={handleLoadingComplete} />}
+      {showOnboarding && <OnboardingTip onDismiss={handleOnboardingDismiss} />}
+      {showGenres && <GenreGrid onGenreSelect={handleGenreSelect} />}
     </div>
   );
 };
