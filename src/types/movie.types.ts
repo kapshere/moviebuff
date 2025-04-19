@@ -15,6 +15,10 @@ export interface Movie {
   director?: string;
   director_id?: number;
   score?: number;
+  // Adding new properties used in the recommendation service
+  source?: string;
+  similarityScore?: number;
+  matchReason?: string[];
 }
 
 export interface Genre {
