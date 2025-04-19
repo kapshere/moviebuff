@@ -793,4 +793,92 @@ export const getPersonalizedRecommendations = async (
     weightedHistory.sort((a, b) => b.weight - a.weight);
     
     // Take the top 5 most relevant movies from history
-    const top
+    const topRatedHistory = weightedHistory.slice(0, 5);
+    
+    // Generate recommendations based on these top movies
+    const recommendationPromises = topRatedHistory.map(item => 
+      getSimilarMovies(item.id, {
+        // Pass weight-based preferences
+        weightDirector: item.weight * 1.2, // Boost director influence for liked movies
+        weightGenre: item.weight * 1.5,    // Boost genre influence for liked movies
+        weightCast: item.weight * 1.3,     // Boost cast influence for liked movies
+        // More weight for newer movies if user tends to like newer movies
+        preferNewReleases: Object.entries(userRatings)
+          .some(([id, rating]) => {
+            if (rating >= 7) { // Only consider highly rated movies
+              const movie = watchHistory.find(m => m === parseInt(id));
+              if (movie) {
+                // Check if this highly rated movie is from the last 5 years
+                const releaseYear = new Date().getFullYear() - 5;
+                return true; // Simplified for now, would need movie release date
+              }
+            }
+            return false;
+          })
+      })
+    );
+    
+    // Wait for all recommendation sets to be fetched
+    const recommendationSets = await Promise.all(recommendationPromises);
+    
+    // Combine all recommendations with weights based on the source movie's rating
+    const weightedRecommendations: Record<number, {
+      movie: Movie,
+      score: number,
+      sources: number[]
+    }> = {};
+    
+    // Process each set of recommendations with its weight
+    recommendationSets.forEach((recommendations, index) => {
+      const sourceId = topRatedHistory[index].id;
+      const weight = topRatedHistory[index].weight;
+      
+      recommendations.forEach((movie, position) => {
+        // Skip movies that are in the watch history
+        if (watchHistory.includes(movie.id)) {
+          return;
+        }
+        
+        // Calculate position-based score (higher position = higher score)
+        const positionScore = 1 - (position / recommendations.length);
+        // Calculate weighted score based on source movie rating and position
+        const weightedScore = (movie.similarityScore || 50) * weight * (0.5 + 0.5 * positionScore);
+        
+        if (!weightedRecommendations[movie.id]) {
+          weightedRecommendations[movie.id] = {
+            movie,
+            score: weightedScore,
+            sources: [sourceId]
+          };
+        } else {
+          // If this movie is recommended by multiple source movies, boost its score
+          weightedRecommendations[movie.id].score += weightedScore;
+          weightedRecommendations[movie.id].sources.push(sourceId);
+        }
+      });
+    });
+    
+    // Convert to array and add personalized reason
+    const personalizedRecommendations = Object.values(weightedRecommendations)
+      .map(({ movie, score, sources }) => ({
+        ...movie,
+        similarityScore: score,
+        matchReason: [
+          ...(movie.matchReason || []),
+          sources.length > 1 
+            ? `Based on ${sources.length} movies you enjoyed` 
+            : `Based on movies you enjoyed`
+        ],
+        source: 'personalized'
+      }));
+    
+    // Sort by personalized score
+    return personalizedRecommendations
+      .sort((a, b) => (b.similarityScore || 0) - (a.similarityScore || 0))
+      .slice(0, 50); // Limit to top 50
+    
+  } catch (error) {
+    console.error('Error generating personalized recommendations:', error);
+    return [];
+  }
+};
