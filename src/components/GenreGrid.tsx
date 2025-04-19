@@ -1,7 +1,10 @@
+
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { MovieSearchBar } from './MovieSearchBar';
+import { toast } from 'sonner';
+
 const genres = [{
   id: 28,
   name: 'Action 🎬'
@@ -51,26 +54,39 @@ const genres = [{
   id: 878,
   name: 'Science Fiction 🚀'
 }];
+
 interface GenreGridProps {
   onGenreSelect: (genre: string) => void;
   onDirectSearch: (query: string) => void;
 }
+
 export const GenreGrid = ({
   onGenreSelect,
   onDirectSearch
 }: GenreGridProps) => {
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
+  
   const handleGenreClick = (genre: string) => {
     setSelectedGenre(genre);
     onGenreSelect(genre);
   };
+  
+  const handleSearch = (query: string) => {
+    if (query.trim()) {
+      toast.success(`Searching for movies like "${query}" 🔍`);
+      onDirectSearch(query);
+    } else {
+      toast.error("Please enter a movie title to search");
+    }
+  };
+  
   return <div className="p-6 space-y-8">
       <div className="text-center space-y-4">
         <h2 className="font-bold text-[#F5F5F5] mb-2 text-4xl text-center">🎬 What to watch?</h2>
         <p className="text-[#AAAAAA] text-lg">
           Search directly or choose a genre to explore
         </p>
-        <MovieSearchBar onSearch={onDirectSearch} placeholder="Search any movie to find similar ones... 🔍" />
+        <MovieSearchBar onSearch={handleSearch} placeholder="Search any movie to find similar ones... 🔍" />
         <div className="w-full max-w-xl mx-auto pt-4">
           <div className="h-px bg-gradient-to-r from-transparent via-[#333333] to-transparent" />
         </div>

@@ -12,6 +12,7 @@ const Index = () => {
   const [showGenres, setShowGenres] = useState(false);
   const [showMovieSearch, setShowMovieSearch] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState('');
+  const [directSearchQuery, setDirectSearchQuery] = useState('');
 
   const handleLoadingComplete = () => {
     setShowLoading(false);
@@ -25,6 +26,7 @@ const Index = () => {
 
   const handleGenreSelect = (genre: string) => {
     setSelectedGenre(genre);
+    setDirectSearchQuery('');
     setShowGenres(false);
     setShowMovieSearch(true);
     toast.success(`Looking for ${genre} movies! 🎬`);
@@ -32,6 +34,7 @@ const Index = () => {
 
   const handleDirectSearch = (query: string) => {
     setSelectedGenre('Search');
+    setDirectSearchQuery(query);
     setShowGenres(false);
     setShowMovieSearch(true);
     toast.success(`Searching for movies like "${query}" 🔍`);
@@ -47,7 +50,12 @@ const Index = () => {
           onDirectSearch={handleDirectSearch}
         />
       )}
-      {showMovieSearch && <MovieSearch selectedGenre={selectedGenre} />}
+      {showMovieSearch && (
+        <MovieSearch 
+          selectedGenre={selectedGenre} 
+          directSearchQuery={directSearchQuery}
+        />
+      )}
     </div>
   );
 };
