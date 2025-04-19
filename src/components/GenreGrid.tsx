@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
+import { Button } from '@/components/ui/button';
 
 const genres = [
   'Mystery', 'Comedy', 'Cyberpunk', 'Drama',
@@ -12,18 +13,22 @@ export const GenreGrid = ({ onGenreSelect }: { onGenreSelect: (genre: string) =>
   return (
     <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
       {genres.map((genre, index) => (
-        <motion.button
+        <motion.div
           key={genre}
-          onClick={() => onGenreSelect(genre)}
-          className="p-6 text-lg font-medium text-[#F5F5F5] bg-[#1E1E1E] rounded-lg hover:bg-[#2A2A2A] transition-colors"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: index * 0.1 }}
         >
-          {genre}
-        </motion.button>
+          <Button 
+            onClick={() => onGenreSelect(genre)}
+            className="w-full h-full min-h-[80px] text-lg font-medium bg-[#1E1E1E] hover:bg-[#8B5CF6] text-[#F5F5F5]"
+            variant="ghost"
+          >
+            {genre}
+          </Button>
+        </motion.div>
       ))}
     </div>
   );

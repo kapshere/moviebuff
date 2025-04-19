@@ -3,11 +3,14 @@ import React, { useState } from 'react';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { OnboardingTip } from '@/components/OnboardingTip';
 import { GenreGrid } from '@/components/GenreGrid';
+import { MovieSearch } from '@/components/MovieSearch';
 
 const Index = () => {
   const [showLoading, setShowLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showGenres, setShowGenres] = useState(false);
+  const [showMovieSearch, setShowMovieSearch] = useState(false);
+  const [selectedGenre, setSelectedGenre] = useState('');
 
   const handleLoadingComplete = () => {
     setShowLoading(false);
@@ -21,7 +24,9 @@ const Index = () => {
 
   const handleGenreSelect = (genre: string) => {
     console.log('Selected genre:', genre);
-    // Will implement movie search in the next iteration
+    setSelectedGenre(genre);
+    setShowGenres(false);
+    setShowMovieSearch(true);
   };
 
   return (
@@ -29,6 +34,7 @@ const Index = () => {
       {showLoading && <LoadingScreen onComplete={handleLoadingComplete} />}
       {showOnboarding && <OnboardingTip onDismiss={handleOnboardingDismiss} />}
       {showGenres && <GenreGrid onGenreSelect={handleGenreSelect} />}
+      {showMovieSearch && <MovieSearch selectedGenre={selectedGenre} />}
     </div>
   );
 };
