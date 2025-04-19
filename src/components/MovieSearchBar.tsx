@@ -44,11 +44,11 @@ export const MovieSearchBar = ({ onSearch, placeholder = "Search movies..." }: M
             className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 text-[#F5F5F5]"
           />
         </div>
-        {searchTerm.length >= 2 && (
-          <CommandList className="max-h-[300px] overflow-y-auto p-1">
-            <CommandEmpty className="py-6 text-center text-sm text-[#666666]">
-              {isLoading ? "Searching..." : "No movies found."}
-            </CommandEmpty>
+        <CommandList className="max-h-[300px] overflow-y-auto p-1">
+          <CommandEmpty className="py-6 text-center text-sm text-[#666666]">
+            {isLoading ? "Searching..." : "No movies found."}
+          </CommandEmpty>
+          {searchTerm.length >= 2 && suggestions && suggestions.length > 0 && (
             <CommandGroup>
               {suggestions.slice(0, 8).map((movie) => (
                 <CommandItem
@@ -68,8 +68,8 @@ export const MovieSearchBar = ({ onSearch, placeholder = "Search movies..." }: M
                 </CommandItem>
               ))}
             </CommandGroup>
-          </CommandList>
-        )}
+          )}
+        </CommandList>
       </Command>
     </div>
   );
