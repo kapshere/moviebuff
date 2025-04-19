@@ -1,89 +1,80 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { CheckCheck } from 'lucide-react';
+import { getMoviesByGenre, getSimilarMovies, type Movie } from '@/services/movieService';
 
 interface MovieSearchProps {
   selectedGenre: string;
 }
 
-// Sample movie database with posters - in a real app, this would come from an API
-const moviesByGenre: Record<string, { title: string; year: number; poster: string; id: string }[]> = {
-  'Action': [
-    { title: 'Die Hard', year: 1988, poster: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5', id: 'act1' },
-    { title: 'Mad Max: Fury Road', year: 2015, poster: 'https://images.unsplash.com/photo-1500673922987-e212871fec22', id: 'act2' },
-    { title: 'John Wick', year: 2014, poster: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb', id: 'act3' }
-  ],
-  'Comedy': [
-    { title: 'Superbad', year: 2007, poster: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5', id: 'com1' },
-    { title: 'The Hangover', year: 2009, poster: 'https://images.unsplash.com/photo-1500673922987-e212871fec22', id: 'com2' },
-    { title: 'Bridesmaids', year: 2011, poster: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb', id: 'com3' }
-  ],
-  'Drama': [
-    { title: 'The Shawshank Redemption', year: 1994, poster: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5', id: 'dra1' },
-    { title: 'The Godfather', year: 1972, poster: 'https://images.unsplash.com/photo-1500673922987-e212871fec22', id: 'dra2' },
-    { title: 'Forrest Gump', year: 1994, poster: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb', id: 'dra3' }
-  ],
-  'Horror': [
-    { title: 'The Shining', year: 1980, poster: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5', id: 'hor1' },
-    { title: 'Get Out', year: 2017, poster: 'https://images.unsplash.com/photo-1500673922987-e212871fec22', id: 'hor2' },
-    { title: 'A Quiet Place', year: 2018, poster: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb', id: 'hor3' }
-  ],
-  'Thriller': [
-    { title: 'The Silence of the Lambs', year: 1991, poster: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5', id: 'thr1' },
-    { title: 'Seven', year: 1995, poster: 'https://images.unsplash.com/photo-1500673922987-e212871fec22', id: 'thr2' },
-    { title: 'Gone Girl', year: 2014, poster: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb', id: 'thr3' }
-  ],
-  'Romance': [
-    { title: 'The Notebook', year: 2004, poster: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5', id: 'rom1' },
-    { title: 'Pride & Prejudice', year: 2005, poster: 'https://images.unsplash.com/photo-1500673922987-e212871fec22', id: 'rom2' },
-    { title: 'La La Land', year: 2016, poster: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb', id: 'rom3' }
-  ]
+// Genre ID mapping for TMDB API
+const genreIds: Record<string, number> = {
+  'Action': 28,
+  'Comedy': 35,
+  'Drama': 18,
+  'Horror': 27,
+  'Thriller': 53,
+  'Romance': 10749,
+  'Science Fiction': 878,
+  'Family': 10751,
+  'Adventure': 12,
+  'Animation': 16
 };
 
 export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
   const [movieTitle, setMovieTitle] = useState('');
-  const [selectedMovie, setSelectedMovie] = useState<{ title: string; year: number; poster: string; id: string } | null>(null);
+  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
   const [showRecommendations, setShowRecommendations] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [movies, setMovies] = useState<Movie[]>([]);
+  const [similarMovies, setSimilarMovies] = useState<Movie[]>([]);
 
-  const genreMovies = moviesByGenre[selectedGenre] || [];
+  useEffect(() => {
+    const fetchMovies = async () => {
+      try {
+        const genreId = genreIds[selectedGenre];
+        if (genreId) {
+          setIsLoading(true);
+          const fetchedMovies = await getMoviesByGenre(genreId);
+          setMovies(fetchedMovies);
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error('Error fetching movies:', error);
+        toast.error('Failed to load movies');
+        setIsLoading(false);
+      }
+    };
 
-  const handleMovieSelect = (movie: { title: string; year: number; poster: string; id: string }) => {
+    fetchMovies();
+  }, [selectedGenre]);
+
+  const handleMovieSelect = (movie: Movie) => {
     setMovieTitle(movie.title);
     setSelectedMovie(movie);
   };
 
-  const handleDone = () => {
+  const handleDone = async () => {
     if (!selectedMovie) {
       toast.error('Please select a movie first');
       return;
     }
     
     setIsLoading(true);
-    
-    // Simulate API call to get recommendations
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const similar = await getSimilarMovies(selectedMovie.id);
+      setSimilarMovies(similar);
       setShowRecommendations(true);
       toast.success('Found similar movies for you!');
-    }, 1500);
-  };
-
-  const getSimilarMovies = () => {
-    if (!selectedMovie) return [];
-    
-    // For the demo, we'll just return other movies from the same genre
-    // In a real app, this would use a recommendation algorithm
-    return genreMovies
-      .filter(movie => movie.id !== selectedMovie.id)
-      .map(movie => ({
-        ...movie,
-        similarityScore: Math.floor(Math.random() * 30) + 70 // Random score between 70-99%
-      }))
-      .sort((a, b) => b.similarityScore - a.similarityScore);
+    } catch (error) {
+      toast.error('Failed to fetch similar movies');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -107,7 +98,7 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
               Popular {selectedGenre} Movies:
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {genreMovies.map((movie, index) => (
+              {movies.map((movie, index) => (
                 <motion.div
                   key={movie.id}
                   initial={{ opacity: 0, y: 10 }}
@@ -119,13 +110,14 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
                   <div className={`p-3 rounded-lg transition-all duration-200 ${selectedMovie?.id === movie.id ? 'bg-[#3A3A3A] ring-2 ring-[#8B5CF6]' : 'bg-[#1E1E1E] hover:bg-[#2A2A2A]'}`}>
                     <div className="flex gap-3">
                       <img 
-                        src={movie.poster} 
+                        src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
                         alt={movie.title}
                         className="w-16 h-24 object-cover rounded"
                       />
                       <div className="flex flex-col justify-center">
                         <p className="text-[#F5F5F5] font-medium">{movie.title}</p>
-                        <p className="text-[#AAAAAA]">{movie.year}</p>
+                        <p className="text-[#AAAAAA]">{new Date(movie.release_date).getFullYear()}</p>
+                        <p className="text-[#AAAAAA] text-sm">Rating: {movie.vote_average.toFixed(1)}/10</p>
                       </div>
                     </div>
                   </div>
@@ -143,13 +135,14 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
               <h3 className="text-[#F5F5F5] text-lg font-semibold mb-2">Selected Movie:</h3>
               <div className="flex items-center gap-4">
                 <img 
-                  src={selectedMovie.poster} 
+                  src={`https://image.tmdb.org/t/p/w500${selectedMovie.poster_path}`}
                   alt={selectedMovie.title}
                   className="w-20 h-28 object-cover rounded"
                 />
                 <div>
                   <p className="text-[#F5F5F5] font-medium">{selectedMovie.title}</p>
-                  <p className="text-[#AAAAAA]">{selectedMovie.year}</p>
+                  <p className="text-[#AAAAAA]">{new Date(selectedMovie.release_date).getFullYear()}</p>
+                  <p className="text-[#AAAAAA] text-sm">Rating: {selectedMovie.vote_average.toFixed(1)}/10</p>
                 </div>
               </div>
               <Button 
@@ -175,20 +168,20 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
             className="mb-6 p-4 bg-[#2A2A2A] rounded-lg flex gap-4 items-center"
           >
             <img 
-              src={selectedMovie?.poster} 
+              src={`https://image.tmdb.org/t/p/w500${selectedMovie?.poster_path}`}
               alt={selectedMovie?.title}
               className="w-20 h-28 object-cover rounded"
             />
             <div>
               <h3 className="text-[#F5F5F5] text-lg font-semibold">Based on your selection:</h3>
-              <p className="text-[#F5F5F5] font-medium">{selectedMovie?.title} ({selectedMovie?.year})</p>
+              <p className="text-[#F5F5F5] font-medium">{selectedMovie?.title} ({selectedMovie?.release_date && new Date(selectedMovie.release_date).getFullYear()})</p>
             </div>
           </motion.div>
 
           <h3 className="text-2xl font-bold text-[#F5F5F5] mb-4">Recommended Movies:</h3>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {getSimilarMovies().map((movie, index) => (
+            {similarMovies.map((movie, index) => (
               <motion.div
                 key={movie.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -197,7 +190,7 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
                 className="bg-[#1E1E1E] rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:translate-y-[-4px]"
               >
                 <img 
-                  src={movie.poster} 
+                  src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
                   alt={movie.title}
                   className="w-full h-48 object-cover"
                 />
@@ -205,12 +198,12 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="text-[#F5F5F5] font-bold">{movie.title}</h4>
                     <span className="bg-[#10B981] text-white text-xs px-2 py-1 rounded-full">
-                      {movie.similarityScore}% match
+                      {movie.vote_average.toFixed(1)}/10
                     </span>
                   </div>
-                  <p className="text-[#AAAAAA]">{movie.year}</p>
-                  <p className="text-[#CCCCCC] mt-2 text-sm">
-                    {`A ${selectedGenre.toLowerCase()} film that viewers of ${selectedMovie?.title} also enjoyed.`}
+                  <p className="text-[#AAAAAA]">{new Date(movie.release_date).getFullYear()}</p>
+                  <p className="text-[#CCCCCC] mt-2 text-sm line-clamp-3">
+                    {movie.overview}
                   </p>
                 </div>
               </motion.div>
@@ -232,3 +225,4 @@ export const MovieSearch = ({ selectedGenre }: MovieSearchProps) => {
     </div>
   );
 };
+
