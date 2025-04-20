@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -23,6 +22,14 @@ type Question = {
 };
 
 const questions: Question[] = [
+  {
+    id: 'similarMovies',
+    question: 'Would you like to select some movies you enjoy? (Optional)',
+    options: [
+      { label: 'Yes, let me pick some movies', value: 'yes', description: 'Select up to 5 movies you like' },
+      { label: 'Skip this step', value: 'skip', description: 'Continue with other preferences' }
+    ]
+  },
   {
     id: 'mood',
     question: 'What mood are you in right now?',
@@ -73,7 +80,7 @@ export function MovieQuestionnaire() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMovies, setSelectedMovies] = useState<Movie[]>([]);
   const [showResults, setShowResults] = useState(false);
-  const [mode, setMode] = useState<'questionnaire' | 'similar'>('questionnaire');
+  const [showMovieSearch, setShowMovieSearch] = useState(false);
 
   const { data: searchResults, isLoading } = useQuery({
     queryKey: ['movieSearch', searchQuery],
@@ -82,6 +89,25 @@ export function MovieQuestionnaire() {
   });
 
   const handleAnswer = (value: string) => {
+    if (currentQuestion === 0 && value === 'yes') {
+      setShowMovieSearch(true);
+      setAnswers(prev => ({
+        ...prev,
+        [questions[currentQuestion].id]: value
+      }));
+      return;
+    }
+
+    if (currentQuestion === 0 && value === 'skip') {
+      setShowMovieSearch(false);
+      setCurrentQuestion(prev => prev + 1);
+      setAnswers(prev => ({
+        ...prev,
+        [questions[currentQuestion].id]: value
+      }));
+      return;
+    }
+
     setAnswers(prev => ({
       ...prev,
       [questions[currentQuestion].id]: value
@@ -94,11 +120,30 @@ export function MovieQuestionnaire() {
     }
   };
 
+  const handleMovieSelect = (movie: Movie) => {
+    if (selectedMovies.length >= 5) {
+      toast.error("You can select up to 5 movies");
+      return;
+    }
+    if (!selectedMovies.find(m => m.id === movie.id)) {
+      setSelectedMovies([...selectedMovies, movie]);
+      toast.success(`Added ${movie.title} to selection`);
+    }
+  };
+
+  const handleRemoveMovie = (movieId: number) => {
+    setSelectedMovies(selectedMovies.filter(m => m.id !== movieId));
+  };
+
+  const handleContinue = () => {
+    setShowMovieSearch(false);
+    setCurrentQuestion(prev => prev + 1);
+  };
+
   const getRecommendation = async () => {
     setLoading(true);
     try {
-      // Use the advanced recommendation system with user preferences
-      const recommendations = await getSimilarMovies(299534, { // Using Endgame as base movie
+      const recommendations = await getSimilarMovies(299534, {
         moodFilter: answers.mood as 'happy' | 'dark' | 'action' | 'thoughtful' | 'emotional',
         preferNewReleases: answers.era === 'new',
         weightDirector: answers.complexity === 'complex' ? 1.2 : 0.8,
@@ -118,27 +163,12 @@ export function MovieQuestionnaire() {
     setLoading(false);
   };
 
-  const handleMovieSelect = (movie: Movie) => {
-    if (selectedMovies.length >= 5) {
-      toast.error("You can select up to 5 movies");
-      return;
-    }
-    if (!selectedMovies.find(m => m.id === movie.id)) {
-      setSelectedMovies([...selectedMovies, movie]);
-      toast.success(`Added ${movie.title} to selection`);
-    }
-  };
-
-  const handleRemoveMovie = (movieId: number) => {
-    setSelectedMovies(selectedMovies.filter(m => m.id !== movieId));
-  };
-
   const resetQuestionnaire = () => {
     setCurrentQuestion(0);
     setAnswers({});
     setRecommendedMovie(null);
     setSelectedMovies([]);
-    setMode('questionnaire');
+    setShowMovieSearch(false);
   };
 
   return (
@@ -162,26 +192,7 @@ export function MovieQuestionnaire() {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {!recommendedMovie && (
-              <div className="flex gap-2 mb-4">
-                <Button
-                  onClick={() => setMode('questionnaire')}
-                  variant={mode === 'questionnaire' ? 'default' : 'outline'}
-                  className={mode === 'questionnaire' ? 'bg-[#8B5CF6]' : 'text-white'}
-                >
-                  Preferences
-                </Button>
-                <Button
-                  onClick={() => setMode('similar')}
-                  variant={mode === 'similar' ? 'default' : 'outline'}
-                  className={mode === 'similar' ? 'bg-[#8B5CF6]' : 'text-white'}
-                >
-                  Similar Movies
-                </Button>
-              </div>
-            )}
-
-            {mode === 'questionnaire' && !recommendedMovie && (
+            {!recommendedMovie && !showMovieSearch && (
               <div className="space-y-2">
                 <h3 className="font-medium leading-none text-white">
                   {questions[currentQuestion].question}
@@ -207,7 +218,7 @@ export function MovieQuestionnaire() {
               </div>
             )}
 
-            {mode === 'similar' && !recommendedMovie && (
+            {showMovieSearch && (
               <div className="space-y-6">
                 <div className="space-y-2">
                   <h3 className="text-sm font-medium text-white">Selected Movies ({selectedMovies.length}/5)</h3>
@@ -274,6 +285,15 @@ export function MovieQuestionnaire() {
                     </CommandList>
                   )}
                 </Command>
+
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleContinue}
+                    className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
+                  >
+                    Continue
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -311,4 +331,3 @@ export function MovieQuestionnaire() {
     </>
   );
 }
-
