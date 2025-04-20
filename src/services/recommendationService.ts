@@ -445,7 +445,6 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
     // NEW - Step 10: Mood-Based Analysis
     if (userPreferences?.moodFilter) {
       try {
-        // Keywords associated with different moods
         const moodKeywords: Record<string, string[]> = {
           'happy': ['comedy', 'feel-good', 'uplifting', 'light-hearted', 'family'],
           'dark': ['thriller', 'horror', 'crime', 'dystopian', 'mystery'],
@@ -456,10 +455,7 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
         
         const selectedMoodKeywords = moodKeywords[userPreferences.moodFilter] || [];
         
-        // Convert keywords to a comma-separated string for the API
         if (selectedMoodKeywords.length > 0) {
-          // We'll use the discover API with keyword filtering
-          // First, we need to get keyword IDs
           const keywordPromises = selectedMoodKeywords.map(async (keyword) => {
             try {
               const keywordResponse = await fetch(
@@ -495,7 +491,7 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
                   if (!recommendations[movie.id].matchReason?.includes(`Matches ${userPreferences.moodFilter} Mood`)) {
                     recommendations[movie.id].matchReason?.push(`Matches ${userPreferences.moodFilter} Mood`);
                     recommendations[movie.id].similarityScore = 
-                      (recommendations[movie.id].similarityScore || 0) + 20; // Higher boost for mood match
+                      (recommendations[movie.id].similarityScore || 0) + 20;
                   }
                 } else {
                   recommendations[movie.id] = {
@@ -507,7 +503,7 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
                     overview: movie.overview,
                     popularity: movie.popularity || 0,
                     vote_count: movie.vote_count || 0,
-                    similarityScore: 60, // High score for mood match
+                    similarityScore: 60, // Reduced from 80
                     matchReason: [`Matches ${userPreferences.moodFilter} Mood`],
                     source: 'mood'
                   };
@@ -523,8 +519,6 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
     
     // NEW - Step 11: Awards and Critical Recognition
     try {
-      // Find critically acclaimed movies similar to this one
-      // Unfortunately TMDB doesn't have a direct API for awards, but we can use high vote_average as a proxy
       const acclaimedResponse = await fetch(
         `${BASE_URL}/discover/movie?api_key=${API_KEY}&language=en-US&sort_by=vote_average.desc&vote_count.gte=1000&vote_average.gte=7.5&with_genres=${movieData.genres.map((g: any) => g.id).join(',')}&page=1`
       );
@@ -552,7 +546,7 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
               overview: movie.overview,
               popularity: movie.popularity || 0,
               vote_count: movie.vote_count || 0,
-              similarityScore: 60, // Good score for acclaimed movies
+              similarityScore: 60, // Reduced from 75
               matchReason: ['Critically Acclaimed'],
               source: 'acclaimed'
             };
