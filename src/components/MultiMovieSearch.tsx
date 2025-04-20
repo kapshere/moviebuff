@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
 import { Search, X } from 'lucide-react';
@@ -14,26 +14,31 @@ export function MultiMovieSearch({ onClose }: { onClose: () => void }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMovies, setSelectedMovies] = useState<Movie[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [commandKey, setCommandKey] = useState<number>(0); // Add a key to force re-render
 
-  // Add default empty arrays and error handling
+  // Add robust error handling and default values
   const { data: searchResults = [], isLoading } = useQuery({
     queryKey: ['movieSearch', searchQuery],
     queryFn: async () => {
+      if (searchQuery.trim().length < 3) return [];
       try {
-        return await searchMovies(searchQuery);
+        const results = await searchMovies(searchQuery);
+        return Array.isArray(results) ? results : [];
       } catch (error) {
         console.error('Search error:', error);
         return [];
       }
     },
-    enabled: searchQuery.length > 2,
+    enabled: searchQuery.trim().length > 2,
   });
 
   const { data: recommendations = [], isLoading: isLoadingRecommendations } = useQuery({
     queryKey: ['hybridRecommendations', selectedMovies.map(m => m.id)],
     queryFn: async () => {
+      if (!selectedMovies.length) return [];
       try {
-        return await getHybridRecommendations(selectedMovies.map(m => m.id));
+        const results = await getHybridRecommendations(selectedMovies.map(m => m.id));
+        return Array.isArray(results) ? results : [];
       } catch (error) {
         console.error('Recommendations error:', error);
         return [];
@@ -41,6 +46,11 @@ export function MultiMovieSearch({ onClose }: { onClose: () => void }) {
     },
     enabled: selectedMovies.length > 0,
   });
+
+  // Force re-render when showing/hiding results to avoid stale cmdk state
+  useEffect(() => {
+    setCommandKey(prev => prev + 1);
+  }, [showResults]);
 
   const handleMovieSelect = (movie: Movie) => {
     if (selectedMovies.length >= 5) {
@@ -87,17 +97,18 @@ export function MultiMovieSearch({ onClose }: { onClose: () => void }) {
             </div>
           </div>
 
-          <Command className="rounded-lg border shadow-md">
+          {/* Using key to force re-render when needed */}
+          <Command key={commandKey} className="rounded-lg border shadow-md">
             <CommandInput
               placeholder="Search for movies..."
               value={searchQuery}
               onValueChange={setSearchQuery}
               onFocus={() => setShowResults(true)}
             />
-            {showResults && searchQuery.length > 2 && (
+            {showResults && searchQuery.trim().length > 2 && (
               <CommandList className="max-h-[200px] overflow-y-auto">
                 <CommandEmpty>No results found.</CommandEmpty>
-                {Array.isArray(searchResults) && searchResults.length > 0 && (
+                {Array.isArray(searchResults) && searchResults.length > 0 ? (
                   <CommandGroup>
                     {searchResults.map((movie) => (
                       <CommandItem
@@ -125,7 +136,7 @@ export function MultiMovieSearch({ onClose }: { onClose: () => void }) {
                       </CommandItem>
                     ))}
                   </CommandGroup>
-                )}
+                ) : null}
                 {isLoading && (
                   <div className="py-6 text-center text-sm">
                     Searching...

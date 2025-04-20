@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -83,19 +83,26 @@ export function MovieQuestionnaire() {
   const [selectedMovies, setSelectedMovies] = useState<Movie[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [showMovieSearch, setShowMovieSearch] = useState(false);
+  const [commandKey, setCommandKey] = useState<number>(0); // Add a key to force re-render
+
+  // Force re-render when showing/hiding results to avoid stale cmdk state
+  useEffect(() => {
+    setCommandKey(prev => prev + 1);
+  }, [showResults, showMovieSearch]);
 
   const { data: searchResults = [], isLoading } = useQuery({
     queryKey: ['movieSearch', searchQuery],
     queryFn: async () => {
       try {
-        if (searchQuery.length <= 2) return [];
-        return await searchMovies(searchQuery);
+        if (searchQuery.trim().length <= 2) return [];
+        const results = await searchMovies(searchQuery);
+        return Array.isArray(results) ? results : [];
       } catch (error) {
         console.error('Search error:', error);
         return [];
       }
     },
-    enabled: searchQuery.length > 2,
+    enabled: searchQuery.trim().length > 2,
   });
 
   // Reset state when dialog closes
@@ -182,8 +189,9 @@ export function MovieQuestionnaire() {
     } catch (error) {
       console.error("Error getting recommendations:", error);
       toast.error("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const resetQuestionnaire = () => {
@@ -290,7 +298,8 @@ export function MovieQuestionnaire() {
 
                 <div className="space-y-2">
                   <div className="relative">
-                    <Command className="rounded-lg border border-[#2A2A2A] bg-[#121212]">
+                    {/* Using key to force re-render when needed */}
+                    <Command key={commandKey} className="rounded-lg border border-[#2A2A2A] bg-[#121212]">
                       <div className="flex items-center border-b border-[#2A2A2A] px-3">
                         <Search className="mr-2 h-4 w-4 shrink-0 text-gray-400" />
                         <CommandInput
@@ -312,7 +321,7 @@ export function MovieQuestionnaire() {
                         )}
                       </div>
                       
-                      {searchQuery.length > 2 && showResults && (
+                      {searchQuery.trim().length > 2 && showResults && (
                         <CommandList className="max-h-[200px] overflow-y-auto p-1">
                           {isLoading && (
                             <div className="py-6 text-center text-sm text-gray-400">
@@ -324,7 +333,7 @@ export function MovieQuestionnaire() {
                             No results found
                           </CommandEmpty>
                           
-                          {Array.isArray(searchResults) && searchResults.length > 0 && (
+                          {Array.isArray(searchResults) && searchResults.length > 0 ? (
                             <CommandGroup>
                               {searchResults.map((movie) => (
                                 <CommandItem
@@ -356,7 +365,7 @@ export function MovieQuestionnaire() {
                                 </CommandItem>
                               ))}
                             </CommandGroup>
-                          )}
+                          ) : null}
                         </CommandList>
                       )}
                     </Command>

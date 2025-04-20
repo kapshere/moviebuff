@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { OnboardingTip } from '@/components/OnboardingTip';
@@ -27,6 +28,8 @@ const Index = () => {
   };
 
   const handleGenreSelect = (genre: string) => {
+    if (!genre) return; // Add safeguard
+    
     setSelectedGenre(genre);
     setDirectSearchQuery('');
     setShowGenres(false);
@@ -35,11 +38,13 @@ const Index = () => {
   };
 
   const handleDirectSearch = (query: string) => {
+    if (!query || query.trim() === '') return; // Add safeguard
+    
     setSelectedGenre('Search');
-    setDirectSearchQuery(query);
+    setDirectSearchQuery(query.trim());
     setShowGenres(false);
     setShowMovieSearch(true);
-    toast.success(`Searching for movies like "${query}" 🔍`);
+    toast.success(`Searching for movies like "${query.trim()}" 🔍`);
   };
 
   const handleBackToGenres = () => {
@@ -48,11 +53,13 @@ const Index = () => {
   };
 
   const handleGenreSearch = (query: string) => {
+    if (!query || query.trim() === '') return; // Add safeguard
+    
     if (selectedGenre === 'Search') {
       handleDirectSearch(query);
     } else {
-      setDirectSearchQuery(query);
-      toast.success(`Searching for ${query} in ${selectedGenre} movies 🔍`);
+      setDirectSearchQuery(query.trim());
+      toast.success(`Searching for ${query.trim()} in ${selectedGenre} movies 🔍`);
     }
   };
 
