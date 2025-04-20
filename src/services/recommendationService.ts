@@ -27,11 +27,12 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
     
     // Setup personalized weighting
     const weights = {
-      director: userPreferences?.weightDirector || 1.0,  // Default weight is 1.0
-      genre: userPreferences?.weightGenre || 1.0,
-      cast: userPreferences?.weightCast || 1.0,
+      director: userPreferences?.weightDirector || 1.2,  // Increased from 1.0
+      genre: userPreferences?.weightGenre || 1.1,
+      cast: userPreferences?.weightCast || 1.3,         // Increased from 1.0
       era: userPreferences?.preferNewReleases ? 1.5 : 0.8,
       language: userPreferences?.preferSameLanguage ? 1.5 : 0.7,
+      combinedBonus: 1.25  // New bonus for multiple matches
     };
     
     // Step 1: Collection/Franchise Analysis - Same universe movies get highest priority
@@ -67,7 +68,7 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
       }
     }
     
-    // Step 2: Director Analysis - Same director often means similar style/themes
+    // Enhanced Director Analysis with more detailed matching
     const directors = movieData.credits?.crew?.filter((person: any) => person.job === 'Director') || [];
     
     if (directors.length > 0) {
@@ -78,20 +79,16 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
         
         if (directorResponse.ok) {
           const directorData = await directorResponse.json();
-          
-          // Get only directorial works, not acting or other roles
           const directedMovies = directorData.crew.filter((credit: any) => 
             credit.job === 'Director' && credit.id !== movieId
           );
           
           for (const movie of directedMovies) {
-            // If we already have this movie but not with this reason, just add the reason
             if (recommendations[movie.id]) {
               if (!recommendations[movie.id].matchReason?.includes('Same Director')) {
                 recommendations[movie.id].matchReason?.push('Same Director');
-                // Boost score for multiple match reasons (with personalized weighting)
                 recommendations[movie.id].similarityScore = 
-                  (recommendations[movie.id].similarityScore || 0) + (15 * weights.director);
+                  (recommendations[movie.id].similarityScore || 0) + (20 * weights.director * weights.combinedBonus);
               }
             } else {
               recommendations[movie.id] = {
@@ -103,7 +100,7 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
                 overview: movie.overview,
                 popularity: movie.popularity || 0,
                 vote_count: movie.vote_count || 0,
-                similarityScore: 85 * weights.director, // High score for same director, with weight
+                similarityScore: 85 * weights.director,
                 matchReason: ['Same Director'],
                 director: directors[0].name,
                 director_id: directors[0].id,
@@ -117,8 +114,8 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
       }
     }
     
-    // Step 3: Cast Analysis - Movies with same lead actors often have similar audience
-    const mainCast = movieData.credits?.cast?.slice(0, 4) || [];
+    // Enhanced Cast Analysis with lead actor focus
+    const mainCast = movieData.credits?.cast?.slice(0, 5) || []; // Increased from 4 to 5
     
     if (mainCast.length > 0) {
       for (const actor of mainCast) {
@@ -129,18 +126,18 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
           
           if (actorResponse.ok) {
             const actorData = await actorResponse.json();
-            
-            // Get movies where they had major roles (top 5 billing)
             const leadRoles = actorData.cast.filter((credit: any) => 
               credit.id !== movieId && credit.order < 5
-            ).slice(0, 8); // Limit to avoid too many results
+            ).slice(0, 10); // Increased from 8 to 10
             
             for (const movie of leadRoles) {
               if (recommendations[movie.id]) {
-                if (!recommendations[movie.id].matchReason?.includes('Same Lead Actor')) {
-                  recommendations[movie.id].matchReason?.push('Same Lead Actor');
+                const matchReason = `Same Actor (${actor.name})`;
+                if (!recommendations[movie.id].matchReason?.includes(matchReason)) {
+                  recommendations[movie.id].matchReason?.push(matchReason);
+                  // Increase score more significantly for multiple actor matches
                   recommendations[movie.id].similarityScore = 
-                    (recommendations[movie.id].similarityScore || 0) + 10;
+                    (recommendations[movie.id].similarityScore || 0) + (15 * weights.cast * weights.combinedBonus);
                 }
               } else {
                 recommendations[movie.id] = {
@@ -152,8 +149,8 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
                   overview: movie.overview,
                   popularity: movie.popularity || 0,
                   vote_count: movie.vote_count || 0,
-                  similarityScore: 75, // Good score for lead actor overlap
-                  matchReason: ['Same Lead Actor'],
+                  similarityScore: 75 * weights.cast,
+                  matchReason: [`Same Actor (${actor.name})`],
                   source: 'cast'
                 };
               }
@@ -566,134 +563,32 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
       console.error('Error in awards/critical analysis:', error);
     }
     
-    // Convert the recommendations object to an array and sort by similarity score
+    // Enhanced final sorting with multiple factor consideration
     let recommendedMovies = Object.values(recommendations);
     
-    // Apply additional mood filtering if requested
-    if (userPreferences?.moodFilter) {
-      // Prioritize movies that match the mood
-      recommendedMovies = recommendedMovies.filter(movie => {
-        // If we have a direct mood match, always include it
-        if (movie.matchReason?.includes(`Matches ${userPreferences.moodFilter} Mood`)) {
-          return true;
-        }
-        
-        // For others, do some basic mood analysis based on genres and overview
-        const overview = movie.overview?.toLowerCase() || '';
-        const title = movie.title?.toLowerCase() || '';
-        
-        // Simple text analysis for different moods
-        switch(userPreferences.moodFilter) {
-          case 'happy':
-            // Include if it seems like a happy movie
-            return overview.includes('comedy') || 
-                   overview.includes('fun') || 
-                   overview.includes('humor') ||
-                   title.includes('happy') ||
-                   title.includes('fun') ||
-                   movie.genres?.some(g => g.name === 'Comedy' || g.name === 'Family');
-          case 'dark':
-            // Include if it seems like a dark movie
-            return overview.includes('murder') || 
-                   overview.includes('thriller') || 
-                   overview.includes('suspense') ||
-                   title.includes('dark') ||
-                   title.includes('night') ||
-                   movie.genres?.some(g => g.name === 'Thriller' || g.name === 'Horror' || g.name === 'Crime');
-          case 'action':
-            // Include if it seems like an action movie
-            return overview.includes('action') || 
-                   overview.includes('fight') || 
-                   overview.includes('battle') ||
-                   title.includes('war') ||
-                   title.includes('fight') ||
-                   movie.genres?.some(g => g.name === 'Action' || g.name === 'Adventure');
-          case 'thoughtful':
-            // Include if it seems like a thoughtful movie
-            return overview.includes('life') || 
-                   overview.includes('journey') || 
-                   overview.includes('discover') ||
-                   title.includes('life') ||
-                   title.includes('journey') ||
-                   movie.genres?.some(g => g.name === 'Drama');
-          case 'emotional':
-            // Include if it seems like an emotional movie
-            return overview.includes('love') || 
-                   overview.includes('relationship') || 
-                   overview.includes('heart') ||
-                   title.includes('love') ||
-                   title.includes('heart') ||
-                   movie.genres?.some(g => g.name === 'Romance' || g.name === 'Drama');
-          default:
-            return true;
-        }
-      });
-    }
+    // Prioritize movies with multiple matching factors
+    recommendedMovies = recommendedMovies.map(movie => {
+      const matchCount = movie.matchReason?.length || 0;
+      const multiFactorBonus = matchCount > 1 ? (matchCount - 1) * 10 * weights.combinedBonus : 0;
+      
+      return {
+        ...movie,
+        similarityScore: (movie.similarityScore || 0) + multiFactorBonus,
+        matchReason: movie.matchReason?.map(reason => 
+          reason.startsWith('Same Actor') ? reason : reason
+        )
+      };
+    });
     
-    // NEW - Adjust for user's preference for newer releases
-    if (userPreferences?.preferNewReleases) {
-      // Boost newer movies
-      recommendedMovies = recommendedMovies.map(movie => {
-        if (!movie.release_date) return movie;
-        
-        const releaseYear = new Date(movie.release_date).getFullYear();
-        const currentYear = new Date().getFullYear();
-        const yearDiff = currentYear - releaseYear;
-        
-        // If released in the last 5 years, give a boost
-        if (yearDiff <= 5) {
-          return {
-            ...movie,
-            similarityScore: (movie.similarityScore || 0) + (10 * (5 - yearDiff) / 5)
-          };
-        }
-        
-        return movie;
-      });
-    }
-    
-    // Get detailed information for top recommendations to improve display quality
-    const detailedRecommendations = await Promise.all(
-      recommendedMovies.slice(0, 30).map(async (movie) => {
-        try {
-          const detailsResponse = await fetch(
-            `${BASE_URL}/movie/${movie.id}?api_key=${API_KEY}&language=en-US&append_to_response=credits`
-          );
-          
-          if (!detailsResponse.ok) {
-            return movie;
-          }
-          
-          const detailsData = await detailsResponse.json();
-          
-          // Find the director if available
-          const director = detailsData.credits?.crew?.find((person: any) => person.job === 'Director');
-          
-          return {
-            ...movie,
-            genres: detailsData.genres,
-            runtime: detailsData.runtime,
-            tagline: detailsData.tagline,
-            backdrop_path: detailsData.backdrop_path,
-            director: director?.name || movie.director,
-            director_id: director?.id || movie.director_id,
-          };
-        } catch (error) {
-          console.error(`Error fetching details for movie ${movie.id}:`, error);
-          return movie;
-        }
-      })
-    );
-    
-    // Sort by similarity score (higher is better)
-    return detailedRecommendations.sort((a, b) => {
+    // Sort by enhanced similarity score
+    return recommendedMovies.sort((a, b) => {
       // First by similarity score
       const scoreDiff = (b.similarityScore || 0) - (a.similarityScore || 0);
       if (scoreDiff !== 0) return scoreDiff;
       
-      // Then by vote average (weighted by vote count)
-      const scoreA = a.vote_average * Math.log10(a.vote_count || 100);
-      const scoreB = b.vote_average * Math.log10(b.vote_count || 100);
+      // Then by vote average weighted by vote count and popularity
+      const scoreA = (a.vote_average * Math.log10(a.vote_count || 100)) * (a.popularity || 1);
+      const scoreB = (b.vote_average * Math.log10(b.vote_count || 100)) * (b.popularity || 1);
       return scoreB - scoreA;
     });
     
@@ -892,26 +787,4 @@ export const getTopIMDBMovies = async (): Promise<Movie[]> => {
     );
     
     if (!response.ok) {
-      console.error('Failed to fetch top IMDB movies:', response.status);
-      return [];
-    }
-    
-    const data = await response.json();
-    
-    // Process and return the movies
-    return data.results.map((movie: any) => ({
-      id: movie.id,
-      title: movie.title,
-      release_date: movie.release_date || '',
-      poster_path: movie.poster_path,
-      backdrop_path: movie.backdrop_path,
-      vote_average: movie.vote_average || 0,
-      overview: movie.overview || '',
-      popularity: movie.popularity || 0,
-      vote_count: movie.vote_count || 0
-    }));
-  } catch (error) {
-    console.error('Error fetching top IMDB movies:', error);
-    return [];
-  }
-};
+      console.error('Failed to fetch top IMDB
