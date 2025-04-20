@@ -1,16 +1,12 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
 import { Movie } from '@/types/movie.types';
 import { toast } from 'sonner';
-import { X, Search, Film } from 'lucide-react';
-import { searchMovies } from '@/services/searchService';
 import { getSimilarMovies } from '@/services/movieService';
-import { useQuery } from '@tanstack/react-query';
 
 type Question = {
   id: string;
@@ -24,14 +20,6 @@ type Question = {
 };
 
 const questions: Question[] = [
-  {
-    id: 'similarMovies',
-    question: 'Would you like to select some movies you enjoy? (Optional)',
-    options: [
-      { label: 'Yes, find movies similar to my favorites', value: 'yes', description: 'Select up to 5 movies you love', icon: '🎬' },
-      { label: 'Skip this step', value: 'skip', description: 'I\'ll just answer some questions instead', icon: '⏭️' }
-    ]
-  },
   {
     id: 'mood',
     question: 'What mood are you in right now?',
@@ -79,61 +67,8 @@ export function MovieQuestionnaire() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [recommendedMovie, setRecommendedMovie] = useState<Movie | null>(null);
   const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMovies, setSelectedMovies] = useState<Movie[]>([]);
-  const [showResults, setShowResults] = useState(false);
-  const [showMovieSearch, setShowMovieSearch] = useState(false);
-  const [commandKey, setCommandKey] = useState<number>(0); // Add a key to force re-render
-
-  // Force re-render when showing/hiding results to avoid stale cmdk state
-  useEffect(() => {
-    setCommandKey(prev => prev + 1);
-  }, [showResults, showMovieSearch]);
-
-  const { data: searchResults = [], isLoading } = useQuery({
-    queryKey: ['movieSearch', searchQuery],
-    queryFn: async () => {
-      try {
-        if (searchQuery.trim().length <= 2) return [];
-        const results = await searchMovies(searchQuery);
-        return Array.isArray(results) ? results : [];
-      } catch (error) {
-        console.error('Search error:', error);
-        return [];
-      }
-    },
-    enabled: searchQuery.trim().length > 2,
-  });
-
-  // Reset state when dialog closes
-  useEffect(() => {
-    if (!open) {
-      setTimeout(() => {
-        resetQuestionnaire();
-      }, 300);
-    }
-  }, [open]);
 
   const handleAnswer = (value: string) => {
-    if (currentQuestion === 0 && value === 'yes') {
-      setShowMovieSearch(true);
-      setAnswers(prev => ({
-        ...prev,
-        [questions[currentQuestion].id]: value
-      }));
-      return;
-    }
-
-    if (currentQuestion === 0 && value === 'skip') {
-      setShowMovieSearch(false);
-      setCurrentQuestion(prev => prev + 1);
-      setAnswers(prev => ({
-        ...prev,
-        [questions[currentQuestion].id]: value
-      }));
-      return;
-    }
-
     setAnswers(prev => ({
       ...prev,
       [questions[currentQuestion].id]: value
@@ -146,31 +81,11 @@ export function MovieQuestionnaire() {
     }
   };
 
-  const handleMovieSelect = (movie: Movie) => {
-    if (selectedMovies.length >= 5) {
-      toast.error("You can select up to 5 movies");
-      return;
-    }
-    if (!selectedMovies.find(m => m.id === movie.id)) {
-      setSelectedMovies([...selectedMovies, movie]);
-      toast.success(`Added ${movie.title} to selection`);
-    }
-  };
-
-  const handleRemoveMovie = (movieId: number) => {
-    setSelectedMovies(selectedMovies.filter(m => m.id !== movieId));
-  };
-
-  const handleContinue = () => {
-    setShowMovieSearch(false);
-    setCurrentQuestion(prev => prev + 1);
-  };
-
   const getRecommendation = async () => {
     setLoading(true);
     try {
-      // Use selected movies for recommendation if available
-      const movieId = selectedMovies.length > 0 ? selectedMovies[0].id : 299534;
+      // Use a default movie ID for recommendation
+      const movieId = 299534; // Example: Avengers: Endgame
       
       const recommendations = await getSimilarMovies(movieId, {
         moodFilter: answers.mood as 'happy' | 'dark' | 'action' | 'thoughtful' | 'emotional',
@@ -198,10 +113,6 @@ export function MovieQuestionnaire() {
     setCurrentQuestion(0);
     setAnswers({});
     setRecommendedMovie(null);
-    setSelectedMovies([]);
-    setShowMovieSearch(false);
-    setSearchQuery('');
-    setShowResults(false);
   };
 
   return (
@@ -225,7 +136,7 @@ export function MovieQuestionnaire() {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {!recommendedMovie && !showMovieSearch && (
+            {!recommendedMovie && (
               <div className="space-y-2">
                 <h3 className="font-medium leading-none text-white">
                   {questions[currentQuestion].question}
@@ -264,138 +175,6 @@ export function MovieQuestionnaire() {
                     </div>
                   ))}
                 </RadioGroup>
-              </div>
-            )}
-
-            {showMovieSearch && (
-              <div className="space-y-6">
-                <div className="space-y-3">
-                  <h3 className="text-sm font-medium text-white">Selected Movies ({selectedMovies.length}/5)</h3>
-                  
-                  {selectedMovies.length === 0 && (
-                    <p className="text-sm text-gray-400">Search and select movies you enjoy below</p>
-                  )}
-                  
-                  <div className="flex flex-wrap gap-2">
-                    {selectedMovies.map(movie => (
-                      <div 
-                        key={movie.id}
-                        className="flex items-center gap-2 bg-[#2A2A2A] p-2 rounded-md"
-                      >
-                        <span className="text-sm text-white">{movie.title}</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveMovie(movie.id)}
-                          className="h-auto p-0 hover:bg-transparent"
-                        >
-                          <X className="h-4 w-4 text-gray-400" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="relative">
-                    {/* Using key to force re-render when needed */}
-                    <Command key={commandKey} className="rounded-lg border border-[#2A2A2A] bg-[#121212]">
-                      <div className="flex items-center border-b border-[#2A2A2A] px-3">
-                        <Search className="mr-2 h-4 w-4 shrink-0 text-gray-400" />
-                        <CommandInput
-                          placeholder="Search for movies..."
-                          value={searchQuery}
-                          onValueChange={setSearchQuery}
-                          onFocus={() => setShowResults(true)}
-                          className="text-white flex h-10 w-full bg-transparent py-3 text-sm outline-none placeholder:text-gray-400"
-                        />
-                        {searchQuery && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSearchQuery('')}
-                            className="h-auto p-1 hover:bg-transparent"
-                          >
-                            <X className="h-4 w-4 text-gray-400" />
-                          </Button>
-                        )}
-                      </div>
-                      
-                      {searchQuery.trim().length > 2 && showResults && (
-                        <CommandList className="max-h-[200px] overflow-y-auto p-1">
-                          {isLoading && (
-                            <div className="py-6 text-center text-sm text-gray-400">
-                              Searching movies...
-                            </div>
-                          )}
-                          
-                          <CommandEmpty className="py-6 text-center text-sm text-gray-400">
-                            No results found
-                          </CommandEmpty>
-                          
-                          {Array.isArray(searchResults) && searchResults.length > 0 ? (
-                            <CommandGroup>
-                              {searchResults.map((movie) => (
-                                <CommandItem
-                                  key={movie.id}
-                                  onSelect={() => {
-                                    handleMovieSelect(movie);
-                                    setSearchQuery('');
-                                  }}
-                                  className="flex items-center gap-2 cursor-pointer hover:bg-[#2A2A2A] py-2"
-                                >
-                                  {movie.poster_path ? (
-                                    <img
-                                      src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
-                                      alt={movie.title}
-                                      className="w-8 h-12 object-cover rounded"
-                                    />
-                                  ) : (
-                                    <div className="w-8 h-12 bg-[#2A2A2A] rounded flex items-center justify-center">
-                                      <Film className="h-4 w-4 text-gray-400" />
-                                    </div>
-                                  )}
-                                  <div>
-                                    <div className="font-medium text-white">{movie.title}</div>
-                                    <div className="text-xs text-gray-400">
-                                      {movie.release_date ? new Date(movie.release_date).getFullYear() : ''}
-                                      {movie.director && ` • Dir: ${movie.director}`}
-                                    </div>
-                                  </div>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          ) : null}
-                        </CommandList>
-                      )}
-                    </Command>
-                  </div>
-                  
-                  <p className="text-xs text-gray-400 px-1">
-                    Type at least 3 characters to search
-                  </p>
-                </div>
-
-                <div className="flex gap-3 justify-end pt-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setShowMovieSearch(false);
-                      handleAnswer('skip');
-                    }}
-                    className="border-[#2A2A2A] text-gray-300 hover:bg-[#2A2A2A] hover:text-white"
-                  >
-                    Skip
-                  </Button>
-                  
-                  <Button
-                    onClick={handleContinue}
-                    className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
-                    disabled={selectedMovies.length === 0}
-                  >
-                    Continue
-                  </Button>
-                </div>
               </div>
             )}
 

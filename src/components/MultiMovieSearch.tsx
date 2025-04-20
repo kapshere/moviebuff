@@ -1,72 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
-import { Search, X } from 'lucide-react';
-import { toast } from 'sonner';
-import { useQuery } from '@tanstack/react-query';
-import { searchMovies } from '@/services/searchService';
-import { getHybridRecommendations } from '@/services/recommendationService';
-import { Movie } from '@/types/movie.types';
 import { Button } from '@/components/ui/button';
 
 export function MultiMovieSearch({ onClose }: { onClose: () => void }) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMovies, setSelectedMovies] = useState<Movie[]>([]);
-  const [showResults, setShowResults] = useState(false);
-  const [commandKey, setCommandKey] = useState<number>(0); // Add a key to force re-render
-
-  // Add robust error handling and default values
-  const { data: searchResults = [], isLoading } = useQuery({
-    queryKey: ['movieSearch', searchQuery],
-    queryFn: async () => {
-      if (searchQuery.trim().length < 3) return [];
-      try {
-        const results = await searchMovies(searchQuery);
-        return Array.isArray(results) ? results : [];
-      } catch (error) {
-        console.error('Search error:', error);
-        return [];
-      }
-    },
-    enabled: searchQuery.trim().length > 2,
-  });
-
-  const { data: recommendations = [], isLoading: isLoadingRecommendations } = useQuery({
-    queryKey: ['hybridRecommendations', selectedMovies.map(m => m.id)],
-    queryFn: async () => {
-      if (!selectedMovies.length) return [];
-      try {
-        const results = await getHybridRecommendations(selectedMovies.map(m => m.id));
-        return Array.isArray(results) ? results : [];
-      } catch (error) {
-        console.error('Recommendations error:', error);
-        return [];
-      }
-    },
-    enabled: selectedMovies.length > 0,
-  });
-
-  // Force re-render when showing/hiding results to avoid stale cmdk state
-  useEffect(() => {
-    setCommandKey(prev => prev + 1);
-  }, [showResults]);
-
-  const handleMovieSelect = (movie: Movie) => {
-    if (selectedMovies.length >= 5) {
-      toast.error("You can select up to 5 movies");
-      return;
-    }
-    if (!selectedMovies.find(m => m.id === movie.id)) {
-      setSelectedMovies([...selectedMovies, movie]);
-      toast.success(`Added ${movie.title} to selection`);
-    }
-  };
-
-  const handleRemoveMovie = (movieId: number) => {
-    setSelectedMovies(selectedMovies.filter(m => m.id !== movieId));
-  };
-
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-2xl">
@@ -75,107 +12,10 @@ export function MultiMovieSearch({ onClose }: { onClose: () => void }) {
         </DialogHeader>
 
         <div className="space-y-6">
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium">Selected Movies ({selectedMovies.length}/5)</h3>
-            <div className="flex flex-wrap gap-2">
-              {selectedMovies.map(movie => (
-                <div 
-                  key={movie.id}
-                  className="flex items-center gap-2 bg-secondary p-2 rounded-md"
-                >
-                  <span className="text-sm">{movie.title}</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRemoveMovie(movie.id)}
-                    className="h-auto p-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
+          <p>This feature is currently unavailable.</p>
+          <div className="flex justify-end">
+            <Button onClick={onClose}>Close</Button>
           </div>
-
-          {/* Using key to force re-render when needed */}
-          <Command key={commandKey} className="rounded-lg border shadow-md">
-            <CommandInput
-              placeholder="Search for movies..."
-              value={searchQuery}
-              onValueChange={setSearchQuery}
-              onFocus={() => setShowResults(true)}
-            />
-            {showResults && searchQuery.trim().length > 2 && (
-              <CommandList className="max-h-[200px] overflow-y-auto">
-                <CommandEmpty>No results found.</CommandEmpty>
-                {Array.isArray(searchResults) && searchResults.length > 0 ? (
-                  <CommandGroup>
-                    {searchResults.map((movie) => (
-                      <CommandItem
-                        key={movie.id}
-                        onSelect={() => {
-                          handleMovieSelect(movie);
-                          setSearchQuery('');
-                          setShowResults(false);
-                        }}
-                        className="flex items-center gap-2 cursor-pointer"
-                      >
-                        {movie.poster_path && (
-                          <img
-                            src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
-                            alt={movie.title}
-                            className="w-8 h-12 object-cover rounded"
-                          />
-                        )}
-                        <div>
-                          <div className="font-medium">{movie.title}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {movie.release_date ? new Date(movie.release_date).getFullYear() : ''}
-                          </div>
-                        </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                ) : null}
-                {isLoading && (
-                  <div className="py-6 text-center text-sm">
-                    Searching...
-                  </div>
-                )}
-              </CommandList>
-            )}
-          </Command>
-
-          {selectedMovies.length > 0 && Array.isArray(recommendations) && recommendations.length > 0 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Recommended Movies</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {recommendations.slice(0, 6).map((movie) => (
-                  <div key={movie.id} className="space-y-2">
-                    {movie.poster_path && (
-                      <img
-                        src={`https://image.tmdb.org/t/p/w300${movie.poster_path}`}
-                        alt={movie.title}
-                        className="w-full rounded-lg shadow-lg"
-                      />
-                    )}
-                    <div className="text-sm font-medium">{movie.title}</div>
-                    {movie.matchReason && Array.isArray(movie.matchReason) && movie.matchReason.length > 0 && (
-                      <div className="text-xs text-muted-foreground">
-                        {movie.matchReason[0]}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {isLoadingRecommendations && (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8B5CF6]"></div>
-            </div>
-          )}
         </div>
       </DialogContent>
     </Dialog>

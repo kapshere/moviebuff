@@ -15,7 +15,6 @@ const Index = () => {
   const [showMovieSearch, setShowMovieSearch] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState('');
   const [directSearchQuery, setDirectSearchQuery] = useState('');
-  const [showMultiSearch, setShowMultiSearch] = useState(false);
 
   const handleLoadingComplete = () => {
     setShowLoading(false);
@@ -61,10 +60,6 @@ const Index = () => {
       setDirectSearchQuery(query.trim());
       toast.success(`Searching for ${query.trim()} in ${selectedGenre} movies 🔍`);
     }
-  };
-
-  const handleMultiSearchToggle = () => {
-    setShowMultiSearch(!showMultiSearch);
   };
 
   return (
