@@ -6,6 +6,7 @@ import { GenreGrid } from '@/components/GenreGrid';
 import { MovieSearch } from '@/components/MovieSearch';
 import { toast } from 'sonner';
 import { MovieSearchBar } from '@/components/MovieSearchBar';
+import { MovieQuestionnaire } from '@/components/MovieQuestionnaire';
 
 const Index = () => {
   const [showLoading, setShowLoading] = useState(true);
@@ -57,6 +58,10 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-[#121212]">
+      <div className="absolute top-4 right-4 z-10">
+        <MovieQuestionnaire />
+      </div>
+      
       {showLoading && <LoadingScreen onComplete={handleLoadingComplete} />}
       {showOnboarding && <OnboardingTip onDismiss={handleOnboardingDismiss} />}
       {showGenres && (
