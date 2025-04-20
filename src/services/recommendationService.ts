@@ -787,24 +787,4 @@ export const getTopIMDBMovies = async (): Promise<Movie[]> => {
     );
     
     if (!response.ok) {
-      console.error('Failed to fetch top IMDB movies:', response.status);
-      return [];
-    }
-    
-    const data = await response.json();
-    
-    return data.results.map((movie: any) => ({
-      id: movie.id,
-      title: movie.title,
-      release_date: movie.release_date,
-      poster_path: movie.poster_path,
-      vote_average: movie.vote_average,
-      overview: movie.overview,
-      popularity: movie.popularity || 0,
-      vote_count: movie.vote_count || 0
-    }));
-  } catch (error) {
-    console.error('Error fetching top IMDB movies:', error);
-    return [];
-  }
-};
+      console.error('Failed to fetch top IMDB movies:', response.
