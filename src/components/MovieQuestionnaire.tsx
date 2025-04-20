@@ -16,6 +16,7 @@ type Question = {
     value: string;
     description?: string;
     icon?: string;
+    movieId?: number; // Added movieId to associate options with seed movies
   }[];
 };
 
@@ -24,39 +25,73 @@ const questions: Question[] = [
     id: 'mood',
     question: 'What mood are you in right now?',
     options: [
-      { label: 'Happy & Uplifting', value: 'happy', description: 'Comedies, feel-good movies, heartwarming stories', icon: '😊' },
-      { label: 'Dark & Intense', value: 'dark', description: 'Thrillers, horror, crime dramas, suspense', icon: '😨' },
-      { label: 'Thoughtful', value: 'thoughtful', description: 'Drama, documentaries, philosophical stories', icon: '🤔' },
-      { label: 'Emotional', value: 'emotional', description: 'Tearjerkers, romantic dramas, powerful stories', icon: '😢' },
-      { label: 'Action-packed', value: 'action', description: 'High-energy adventures, superhero movies, excitement', icon: '💥' }
+      { label: 'Happy & Uplifting', value: 'happy', description: 'Comedies, feel-good movies, heartwarming stories', icon: '😊', movieId: 13 }, // Forrest Gump
+      { label: 'Dark & Intense', value: 'dark', description: 'Thrillers, horror, crime dramas, suspense', icon: '😨', movieId: 680 }, // Pulp Fiction
+      { label: 'Thoughtful', value: 'thoughtful', description: 'Drama, documentaries, philosophical stories', icon: '🤔', movieId: 389 }, // 12 Angry Men
+      { label: 'Emotional', value: 'emotional', description: 'Tearjerkers, romantic dramas, powerful stories', icon: '😢', movieId: 597 }, // Titanic
+      { label: 'Action-packed', value: 'action', description: 'High-energy adventures, superhero movies, excitement', icon: '💥', movieId: 157336 } // Interstellar
     ]
   },
   {
     id: 'pacing',
     question: 'What kind of pacing do you prefer?',
     options: [
-      { label: 'Fast & Dynamic', value: 'fast', description: 'Quick scenes, constant movement, no downtime', icon: '⚡' },
-      { label: 'Steady & Balanced', value: 'balanced', description: 'Even rhythm, mix of action and dialogue', icon: '⚖️' },
-      { label: 'Slow & Contemplative', value: 'slow', description: 'Deliberate pacing, atmospheric, reflective', icon: '🐢' }
+      { label: 'Fast & Dynamic', value: 'fast', description: 'Quick scenes, constant movement, no downtime', icon: '⚡', movieId: 27205 }, // Inception
+      { label: 'Steady & Balanced', value: 'balanced', description: 'Even rhythm, mix of action and dialogue', icon: '⚖️', movieId: 155 }, // The Dark Knight
+      { label: 'Slow & Contemplative', value: 'slow', description: 'Deliberate pacing, atmospheric, reflective', icon: '🐢', movieId: 335984 } // Blade Runner 2049
     ]
   },
   {
     id: 'era',
     question: 'Do you have a preferred time period?',
     options: [
-      { label: 'Latest Releases (2020+)', value: 'new', description: 'The newest movies available', icon: '🆕' },
-      { label: 'Modern Classics (2000-2020)', value: 'modern', description: 'Well-established hits from recent decades', icon: '📱' },
-      { label: 'Timeless Classics (Pre-2000)', value: 'classic', description: 'Older movies that stand the test of time', icon: '🏛️' },
-      { label: 'No Preference', value: 'any', description: 'I don\'t mind when it was released', icon: '🤷' }
+      { label: 'Latest Releases (2020+)', value: 'new', description: 'The newest movies available', icon: '🆕', movieId: 634649 }, // Spider-Man: No Way Home
+      { label: 'Modern Classics (2000-2020)', value: 'modern', description: 'Well-established hits from recent decades', icon: '📱', movieId: 120 }, // The Lord of the Rings
+      { label: 'Timeless Classics (Pre-2000)', value: 'classic', description: 'Older movies that stand the test of time', icon: '🏛️', movieId: 278 }, // The Shawshank Redemption
+      { label: 'No Preference', value: 'any', description: 'I don\'t mind when it was released', icon: '🤷', movieId: 238 } // The Godfather
     ]
   },
   {
     id: 'complexity',
     question: 'How complex should the story be?',
     options: [
-      { label: 'Simple & Straightforward', value: 'simple', description: 'Easy to follow, clear storylines', icon: '📄' },
-      { label: 'Balanced', value: 'balanced', description: 'Some depth but not overly complicated', icon: '📚' },
-      { label: 'Complex & Layered', value: 'complex', description: 'Multi-layered narratives, challenging themes', icon: '🧩' }
+      { label: 'Simple & Straightforward', value: 'simple', description: 'Easy to follow, clear storylines', icon: '📄', movieId: 10681 }, // WALL·E
+      { label: 'Balanced', value: 'balanced', description: 'Some depth but not overly complicated', icon: '📚', movieId: 550 }, // Fight Club
+      { label: 'Complex & Layered', value: 'complex', description: 'Multi-layered narratives, challenging themes', icon: '🧩', movieId: 13 } // Forrest Gump
+    ]
+  },
+  // New question: Genre preference
+  {
+    id: 'genre',
+    question: 'What genre are you in the mood for?',
+    options: [
+      { label: 'Science Fiction', value: 'scifi', description: 'Space, technology, future worlds', icon: '🚀', movieId: 157336 }, // Interstellar
+      { label: 'Fantasy', value: 'fantasy', description: 'Magic, mythical creatures, imaginary worlds', icon: '🧙', movieId: 120 }, // The Lord of the Rings
+      { label: 'Drama', value: 'drama', description: 'Realistic characters facing life challenges', icon: '🎭', movieId: 278 }, // The Shawshank Redemption
+      { label: 'Comedy', value: 'comedy', description: 'Humor, light-hearted entertainment', icon: '😂', movieId: 109445 }, // Frozen
+      { label: 'Romance', value: 'romance', description: 'Love stories, relationships', icon: '❤️', movieId: 597 } // Titanic
+    ]
+  },
+  // New question: Tone preference
+  {
+    id: 'tone',
+    question: 'What tone do you prefer?',
+    options: [
+      { label: 'Light & Funny', value: 'light', description: 'Humorous, entertaining, upbeat', icon: '🤣', movieId: 109445 }, // Frozen
+      { label: 'Serious & Dramatic', value: 'serious', description: 'Heavy themes, emotional impact', icon: '😐', movieId: 680 }, // Pulp Fiction
+      { label: 'Exciting & Tense', value: 'exciting', description: 'Thrilling moments, suspense, action', icon: '😲', movieId: 155 }, // The Dark Knight
+      { label: 'Inspiring & Uplifting', value: 'inspiring', description: 'Motivational stories, positive messages', icon: '✨', movieId: 272 } // Batman Begins
+    ]
+  },
+  // New question: Content rating preference
+  {
+    id: 'rating',
+    question: 'What content rating are you comfortable with?',
+    options: [
+      { label: 'Family-Friendly', value: 'family', description: 'Suitable for all ages, no mature content', icon: '👪', movieId: 10681 }, // WALL·E
+      { label: 'Teen-Appropriate', value: 'teen', description: 'Some mature themes but not explicit', icon: '👦', movieId: 157336 }, // Interstellar
+      { label: 'Mature Content', value: 'mature', description: 'Adult themes, may include violence or language', icon: '🔞', movieId: 550 }, // Fight Club
+      { label: 'Any Rating', value: 'any', description: 'I don\'t mind the content rating', icon: '🎬', movieId: 238 } // The Godfather
     ]
   }
 ];
@@ -84,10 +119,10 @@ export function MovieQuestionnaire() {
   const getRecommendation = async () => {
     setLoading(true);
     try {
-      // Use a default movie ID for recommendation
-      const movieId = 299534; // Example: Avengers: Endgame
+      // Instead of using a hardcoded movie ID, determine a seed movie based on answers
+      let seedMovieId = determineSeedMovie(answers);
       
-      const recommendations = await getSimilarMovies(movieId, {
+      const recommendations = await getSimilarMovies(seedMovieId, {
         moodFilter: answers.mood as 'happy' | 'dark' | 'action' | 'thoughtful' | 'emotional',
         preferNewReleases: answers.era === 'new',
         weightDirector: answers.complexity === 'complex' ? 1.2 : 0.8,
@@ -107,6 +142,36 @@ export function MovieQuestionnaire() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper function to determine the best seed movie based on answers
+  const determineSeedMovie = (answers: Record<string, string>): number => {
+    // Create a map of movie IDs and their match count
+    const movieMatches: Record<number, number> = {};
+    
+    // Count matches for each question's selected option
+    Object.entries(answers).forEach(([questionId, answerValue]) => {
+      const question = questions.find(q => q.id === questionId);
+      if (question) {
+        const selectedOption = question.options.find(opt => opt.value === answerValue);
+        if (selectedOption && selectedOption.movieId) {
+          movieMatches[selectedOption.movieId] = (movieMatches[selectedOption.movieId] || 0) + 1;
+        }
+      }
+    });
+    
+    // Find the movie ID with the most matches
+    let bestMovieId = 278; // Default to Shawshank Redemption if no matches
+    let highestMatchCount = 0;
+    
+    Object.entries(movieMatches).forEach(([movieId, count]) => {
+      if (count > highestMatchCount) {
+        highestMatchCount = count;
+        bestMovieId = Number(movieId);
+      }
+    });
+    
+    return bestMovieId;
   };
 
   const resetQuestionnaire = () => {
