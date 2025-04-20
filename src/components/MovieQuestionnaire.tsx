@@ -165,7 +165,7 @@ export function MovieQuestionnaire() {
         weightCast: answers.complexity === 'simple' ? 0.7 : 1,
       });
 
-      if (recommendations.length > 0) {
+      if (recommendations && recommendations.length > 0) {
         setRecommendedMovie(recommendations[0]);
         toast.success("Found the perfect movie for you! 🎬");
       } else {

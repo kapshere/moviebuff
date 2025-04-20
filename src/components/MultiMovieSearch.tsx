@@ -15,13 +15,13 @@ export function MultiMovieSearch({ onClose }: { onClose: () => void }) {
   const [selectedMovies, setSelectedMovies] = useState<Movie[]>([]);
   const [showResults, setShowResults] = useState(false);
 
-  const { data: searchResults, isLoading } = useQuery({
+  const { data: searchResults = [], isLoading } = useQuery({
     queryKey: ['movieSearch', searchQuery],
     queryFn: () => searchMovies(searchQuery),
     enabled: searchQuery.length > 2,
   });
 
-  const { data: recommendations, isLoading: isLoadingRecommendations } = useQuery({
+  const { data: recommendations = [], isLoading: isLoadingRecommendations } = useQuery({
     queryKey: ['hybridRecommendations', selectedMovies.map(m => m.id)],
     queryFn: () => getHybridRecommendations(selectedMovies.map(m => m.id)),
     enabled: selectedMovies.length > 0,
@@ -82,7 +82,7 @@ export function MultiMovieSearch({ onClose }: { onClose: () => void }) {
             {showResults && (
               <CommandList>
                 <CommandEmpty>No results found.</CommandEmpty>
-                {searchResults && (
+                {searchResults && searchResults.length > 0 && (
                   <CommandGroup>
                     {searchResults.map((movie) => (
                       <CommandItem
@@ -104,7 +104,7 @@ export function MultiMovieSearch({ onClose }: { onClose: () => void }) {
                         <div>
                           <div className="font-medium">{movie.title}</div>
                           <div className="text-sm text-muted-foreground">
-                            {new Date(movie.release_date).getFullYear()}
+                            {movie.release_date ? new Date(movie.release_date).getFullYear() : ''}
                           </div>
                         </div>
                       </CommandItem>
@@ -115,7 +115,7 @@ export function MultiMovieSearch({ onClose }: { onClose: () => void }) {
             )}
           </Command>
 
-          {selectedMovies.length > 0 && recommendations && (
+          {selectedMovies.length > 0 && recommendations && recommendations.length > 0 && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Recommended Movies</h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -129,7 +129,7 @@ export function MultiMovieSearch({ onClose }: { onClose: () => void }) {
                       />
                     )}
                     <div className="text-sm font-medium">{movie.title}</div>
-                    {movie.matchReason && (
+                    {movie.matchReason && movie.matchReason.length > 0 && (
                       <div className="text-xs text-muted-foreground">
                         {movie.matchReason[0]}
                       </div>
