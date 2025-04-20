@@ -84,7 +84,7 @@ export function MovieQuestionnaire() {
   const [showResults, setShowResults] = useState(false);
   const [showMovieSearch, setShowMovieSearch] = useState(false);
 
-  const { data: searchResults, isLoading } = useQuery({
+  const { data: searchResults = [], isLoading } = useQuery({
     queryKey: ['movieSearch', searchQuery],
     queryFn: () => searchMovies(searchQuery),
     enabled: searchQuery.length > 2,
@@ -185,6 +185,7 @@ export function MovieQuestionnaire() {
     setSelectedMovies([]);
     setShowMovieSearch(false);
     setSearchQuery('');
+    setShowResults(false);
   };
 
   return (
