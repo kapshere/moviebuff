@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { OnboardingTip } from '@/components/OnboardingTip';
@@ -13,6 +12,7 @@ const Index = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showGenres, setShowGenres] = useState(false);
   const [showMovieSearch, setShowMovieSearch] = useState(false);
+  const [showQuestionnaire, setShowQuestionnaire] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState('');
   const [directSearchQuery, setDirectSearchQuery] = useState('');
 
@@ -24,6 +24,7 @@ const Index = () => {
   const handleOnboardingDismiss = () => {
     setShowOnboarding(false);
     setShowGenres(true);
+    setShowQuestionnaire(true);
   };
 
   const handleGenreSelect = (genre: string) => {
@@ -64,9 +65,11 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-[#121212]">
-      <div className="absolute top-4 right-4 z-10">
-        <MovieQuestionnaire />
-      </div>
+      {showQuestionnaire && (
+        <div className="absolute top-4 right-4 z-10">
+          <MovieQuestionnaire />
+        </div>
+      )}
       
       {showLoading && <LoadingScreen onComplete={handleLoadingComplete} />}
       {showOnboarding && <OnboardingTip onDismiss={handleOnboardingDismiss} />}

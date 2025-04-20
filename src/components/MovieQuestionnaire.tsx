@@ -121,7 +121,7 @@ export function MovieQuestionnaire() {
         onClick={() => setOpen(true)}
         className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
       >
-        Find Perfect Movie
+        Perfect Match
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
