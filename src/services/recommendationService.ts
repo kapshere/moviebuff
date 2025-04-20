@@ -1,4 +1,3 @@
-
 import { Movie } from '@/types/movie.types';
 import { BASE_URL, API_KEY } from '@/config/api.config';
 import { getFallbackMovies } from './fallbackService';
@@ -28,12 +27,12 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
     
     // Setup personalized weighting
     const weights = {
-      director: userPreferences?.weightDirector || 1.2,  // Increased from 1.0
-      genre: userPreferences?.weightGenre || 1.1,
-      cast: userPreferences?.weightCast || 1.3,         // Increased from 1.0
-      era: userPreferences?.preferNewReleases ? 1.5 : 0.8,
-      language: userPreferences?.preferSameLanguage ? 1.5 : 0.7,
-      combinedBonus: 1.25  // New bonus for multiple matches
+      director: userPreferences?.weightDirector || 0.8,    // Reduced from 1.2
+      genre: userPreferences?.weightGenre || 0.6,         // Reduced from 1.1
+      cast: userPreferences?.weightCast || 0.7,          // Reduced from 1.3
+      era: userPreferences?.preferNewReleases ? 0.5 : 0.3,
+      language: userPreferences?.preferSameLanguage ? 0.5 : 0.3,
+      combinedBonus: 0.4  // Reduced from 1.25 to make multiple matches less dominant
     };
     
     // Step 1: Collection/Franchise Analysis - Same universe movies get highest priority
@@ -57,7 +56,7 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
                 overview: movie.overview,
                 popularity: movie.popularity || 0,
                 vote_count: movie.vote_count || 0,
-                similarityScore: 100, // Maximum score for franchise movies
+                similarityScore: 85, // Reduced from 100
                 matchReason: ['Same Film Series'],
                 source: 'franchise'
               };
@@ -101,7 +100,7 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
                 overview: movie.overview,
                 popularity: movie.popularity || 0,
                 vote_count: movie.vote_count || 0,
-                similarityScore: 85 * weights.director,
+                similarityScore: 65 * weights.director,
                 matchReason: ['Same Director'],
                 director: directors[0].name,
                 director_id: directors[0].id,
@@ -150,7 +149,7 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
                   overview: movie.overview,
                   popularity: movie.popularity || 0,
                   vote_count: movie.vote_count || 0,
-                  similarityScore: 75 * weights.cast,
+                  similarityScore: 55 * weights.cast,
                   matchReason: [`Same Actor (${actor.name})`],
                   source: 'cast'
                 };
@@ -204,7 +203,7 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
                   overview: movie.overview,
                   popularity: movie.popularity || 0,
                   vote_count: movie.vote_count || 0,
-                  similarityScore: 65, // Decent score for thematic similarity
+                  similarityScore: 45, // Reduced from 65
                   matchReason: ['Similar Themes'],
                   source: 'keyword'
                 };
@@ -253,7 +252,7 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
                 overview: movie.overview,
                 popularity: movie.popularity || 0,
                 vote_count: movie.vote_count || 0,
-                similarityScore: 60, // Base score for genre match
+                similarityScore: 40, // Reduced from 60
                 matchReason: ['Genre Match'],
                 source: 'genre'
               };
@@ -289,7 +288,7 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
           overview: movie.overview,
           popularity: movie.popularity || 0,
           vote_count: movie.vote_count || 0,
-          similarityScore: 70, // Good score for TMDB's own recommendations
+          similarityScore: 50, // Reduced from 70
           matchReason: ['TMDB Recommended'],
           source: 'recommend'
         };
@@ -335,7 +334,7 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
                 overview: movie.overview,
                 popularity: movie.popularity || 0,
                 vote_count: movie.vote_count || 0,
-                similarityScore: 50, // Lower score for just era matching
+                similarityScore: 35, // Reduced from 50
                 matchReason: ['Same Era'],
                 source: 'era'
               };
@@ -386,7 +385,7 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
                   overview: movie.overview,
                   popularity: movie.popularity || 0,
                   vote_count: movie.vote_count || 0,
-                  similarityScore: 75, // Good score for visual similarity
+                  similarityScore: 45, // Reduced from 75
                   matchReason: ['Visual Style'],
                   source: 'visual'
                 };
@@ -432,7 +431,7 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
               overview: movie.overview,
               popularity: movie.popularity || 0,
               vote_count: movie.vote_count || 0,
-              similarityScore: 65 * weights.language, // Decent score for language/region match
+              similarityScore: 45 * weights.language, // Reduced from 65
               matchReason: ['Same Region/Language'],
               source: 'region'
             };
@@ -508,7 +507,7 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
                     overview: movie.overview,
                     popularity: movie.popularity || 0,
                     vote_count: movie.vote_count || 0,
-                    similarityScore: 80, // High score for mood match
+                    similarityScore: 60, // High score for mood match
                     matchReason: [`Matches ${userPreferences.moodFilter} Mood`],
                     source: 'mood'
                   };
@@ -553,7 +552,7 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
               overview: movie.overview,
               popularity: movie.popularity || 0,
               vote_count: movie.vote_count || 0,
-              similarityScore: 75, // Good score for acclaimed movies
+              similarityScore: 60, // Good score for acclaimed movies
               matchReason: ['Critically Acclaimed'],
               source: 'acclaimed'
             };
@@ -570,11 +569,17 @@ export const getSimilarMovies = async (movieId: number, userPreferences?: {
     // Prioritize movies with multiple matching factors
     recommendedMovies = recommendedMovies.map(movie => {
       const matchCount = movie.matchReason?.length || 0;
-      const multiFactorBonus = matchCount > 1 ? (matchCount - 1) * 10 * weights.combinedBonus : 0;
+      const multiFactorBonus = matchCount > 1 ? (matchCount - 1) * 5 * weights.combinedBonus : 0;
+      
+      // Cap the maximum similarity score at 95%
+      let finalScore = Math.min((movie.similarityScore || 0) + multiFactorBonus, 95);
+      
+      // Apply a more natural distribution
+      finalScore = Math.round((finalScore * 0.8) + (Math.random() * 5));
       
       return {
         ...movie,
-        similarityScore: (movie.similarityScore || 0) + multiFactorBonus,
+        similarityScore: finalScore,
         matchReason: movie.matchReason?.map(reason => 
           reason.startsWith('Same Actor') ? reason : reason
         )
