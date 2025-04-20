@@ -6,8 +6,6 @@ import { MovieSearch } from '@/components/MovieSearch';
 import { toast } from 'sonner';
 import { MovieSearchBar } from '@/components/MovieSearchBar';
 import { MovieQuestionnaire } from '@/components/MovieQuestionnaire';
-import { MultiMovieSearch } from '@/components/MultiMovieSearch';
-import { Button } from '@/components/ui/button';
 
 const Index = () => {
   const [showLoading, setShowLoading] = useState(true);
@@ -64,17 +62,9 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-[#121212]">
-      <div className="absolute top-4 right-4 z-10 flex gap-4">
-        <Button 
-          onClick={handleMultiSearchToggle}
-          className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
-        >
-          Find Similar Movies
-        </Button>
+      <div className="absolute top-4 right-4 z-10">
         <MovieQuestionnaire />
       </div>
-      
-      {showMultiSearch && <MultiMovieSearch onClose={() => setShowMultiSearch(false)} />}
       
       {showLoading && <LoadingScreen onComplete={handleLoadingComplete} />}
       {showOnboarding && <OnboardingTip onDismiss={handleOnboardingDismiss} />}
