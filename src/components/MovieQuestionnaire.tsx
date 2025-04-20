@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -6,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
 import { Movie } from '@/types/movie.types';
 import { toast } from 'sonner';
-import { X } from 'lucide-react';
+import { X, Search, Film } from 'lucide-react';
 import { searchMovies } from '@/services/searchService';
 import { getSimilarMovies } from '@/services/movieService';
 import { useQuery } from '@tanstack/react-query';
@@ -18,6 +19,7 @@ type Question = {
     label: string;
     value: string;
     description?: string;
+    icon?: string;
   }[];
 };
 
@@ -26,47 +28,47 @@ const questions: Question[] = [
     id: 'similarMovies',
     question: 'Would you like to select some movies you enjoy? (Optional)',
     options: [
-      { label: 'Yes, let me pick some movies', value: 'yes', description: 'Select up to 5 movies you like' },
-      { label: 'Skip this step', value: 'skip', description: 'Continue with other preferences' }
+      { label: 'Yes, find movies similar to my favorites', value: 'yes', description: 'Select up to 5 movies you love', icon: '🎬' },
+      { label: 'Skip this step', value: 'skip', description: 'I\'ll just answer some questions instead', icon: '⏭️' }
     ]
   },
   {
     id: 'mood',
     question: 'What mood are you in right now?',
     options: [
-      { label: 'Happy & Uplifting', value: 'happy', description: 'Looking for something light and joyful' },
-      { label: 'Dark & Intense', value: 'dark', description: 'In the mood for something serious or thrilling' },
-      { label: 'Thoughtful', value: 'thoughtful', description: 'Want something that makes me think' },
-      { label: 'Emotional', value: 'emotional', description: 'Ready for an emotional journey' },
-      { label: 'Action-packed', value: 'action', description: 'Want excitement and adventure' }
+      { label: 'Happy & Uplifting', value: 'happy', description: 'Comedies, feel-good movies, heartwarming stories', icon: '😊' },
+      { label: 'Dark & Intense', value: 'dark', description: 'Thrillers, horror, crime dramas, suspense', icon: '😨' },
+      { label: 'Thoughtful', value: 'thoughtful', description: 'Drama, documentaries, philosophical stories', icon: '🤔' },
+      { label: 'Emotional', value: 'emotional', description: 'Tearjerkers, romantic dramas, powerful stories', icon: '😢' },
+      { label: 'Action-packed', value: 'action', description: 'High-energy adventures, superhero movies, excitement', icon: '💥' }
     ]
   },
   {
     id: 'pacing',
     question: 'What kind of pacing do you prefer?',
     options: [
-      { label: 'Fast & Dynamic', value: 'fast' },
-      { label: 'Steady & Balanced', value: 'balanced' },
-      { label: 'Slow & Contemplative', value: 'slow' }
+      { label: 'Fast & Dynamic', value: 'fast', description: 'Quick scenes, constant movement, no downtime', icon: '⚡' },
+      { label: 'Steady & Balanced', value: 'balanced', description: 'Even rhythm, mix of action and dialogue', icon: '⚖️' },
+      { label: 'Slow & Contemplative', value: 'slow', description: 'Deliberate pacing, atmospheric, reflective', icon: '🐢' }
     ]
   },
   {
     id: 'era',
     question: 'Do you have a preferred time period?',
     options: [
-      { label: 'Latest Releases', value: 'new' },
-      { label: 'Modern Classics (2000-2020)', value: 'modern' },
-      { label: 'Timeless Classics', value: 'classic' },
-      { label: 'No Preference', value: 'any' }
+      { label: 'Latest Releases (2020+)', value: 'new', description: 'The newest movies available', icon: '🆕' },
+      { label: 'Modern Classics (2000-2020)', value: 'modern', description: 'Well-established hits from recent decades', icon: '📱' },
+      { label: 'Timeless Classics (Pre-2000)', value: 'classic', description: 'Older movies that stand the test of time', icon: '🏛️' },
+      { label: 'No Preference', value: 'any', description: 'I don\'t mind when it was released', icon: '🤷' }
     ]
   },
   {
     id: 'complexity',
     question: 'How complex should the story be?',
     options: [
-      { label: 'Simple & Straightforward', value: 'simple' },
-      { label: 'Balanced', value: 'balanced' },
-      { label: 'Complex & Layered', value: 'complex' }
+      { label: 'Simple & Straightforward', value: 'simple', description: 'Easy to follow, clear storylines', icon: '📄' },
+      { label: 'Balanced', value: 'balanced', description: 'Some depth but not overly complicated', icon: '📚' },
+      { label: 'Complex & Layered', value: 'complex', description: 'Multi-layered narratives, challenging themes', icon: '🧩' }
     ]
   }
 ];
@@ -87,6 +89,15 @@ export function MovieQuestionnaire() {
     queryFn: () => searchMovies(searchQuery),
     enabled: searchQuery.length > 2,
   });
+
+  // Reset state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setTimeout(() => {
+        resetQuestionnaire();
+      }, 300);
+    }
+  }, [open]);
 
   const handleAnswer = (value: string) => {
     if (currentQuestion === 0 && value === 'yes') {
@@ -143,7 +154,10 @@ export function MovieQuestionnaire() {
   const getRecommendation = async () => {
     setLoading(true);
     try {
-      const recommendations = await getSimilarMovies(299534, {
+      // Use selected movies for recommendation if available
+      const movieId = selectedMovies.length > 0 ? selectedMovies[0].id : 299534;
+      
+      const recommendations = await getSimilarMovies(movieId, {
         moodFilter: answers.mood as 'happy' | 'dark' | 'action' | 'thoughtful' | 'emotional',
         preferNewReleases: answers.era === 'new',
         weightDirector: answers.complexity === 'complex' ? 1.2 : 0.8,
@@ -158,6 +172,7 @@ export function MovieQuestionnaire() {
         toast.error("Couldn't find a matching movie. Try different preferences!");
       }
     } catch (error) {
+      console.error("Error getting recommendations:", error);
       toast.error("Something went wrong. Please try again.");
     }
     setLoading(false);
@@ -169,6 +184,7 @@ export function MovieQuestionnaire() {
     setRecommendedMovie(null);
     setSelectedMovies([]);
     setShowMovieSearch(false);
+    setSearchQuery('');
   };
 
   return (
@@ -199,17 +215,33 @@ export function MovieQuestionnaire() {
                 </h3>
                 <RadioGroup
                   onValueChange={handleAnswer}
-                  className="gap-3"
+                  className="gap-3 mt-4"
                 >
                   {questions[currentQuestion].options.map((option) => (
-                    <div key={option.value} className="flex items-center space-x-2">
-                      <RadioGroupItem value={option.value} id={option.value} />
-                      <Label htmlFor={option.value} className="cursor-pointer text-gray-200">
-                        <div>
-                          <div>{option.label}</div>
-                          {option.description && (
-                            <div className="text-sm text-gray-400">{option.description}</div>
+                    <div 
+                      key={option.value} 
+                      className="flex items-center space-x-2 p-3 rounded-lg border border-transparent transition-all duration-200 hover:border-[#8B5CF6] hover:bg-[#1A1A1A] hover:shadow-[0_0_15px_rgba(139,92,246,0.3)] cursor-pointer group"
+                    >
+                      <RadioGroupItem 
+                        value={option.value} 
+                        id={option.value} 
+                        className="text-[#8B5CF6]"
+                      />
+                      <Label htmlFor={option.value} className="cursor-pointer flex-grow">
+                        <div className="flex items-start">
+                          {option.icon && (
+                            <span className="mr-2 text-lg">{option.icon}</span>
                           )}
+                          <div>
+                            <div className="text-gray-200 font-medium group-hover:text-white transition-colors">
+                              {option.label}
+                            </div>
+                            {option.description && (
+                              <div className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">
+                                {option.description}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </Label>
                     </div>
@@ -220,8 +252,13 @@ export function MovieQuestionnaire() {
 
             {showMovieSearch && (
               <div className="space-y-6">
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <h3 className="text-sm font-medium text-white">Selected Movies ({selectedMovies.length}/5)</h3>
+                  
+                  {selectedMovies.length === 0 && (
+                    <p className="text-sm text-gray-400">Search and select movies you enjoy below</p>
+                  )}
+                  
                   <div className="flex flex-wrap gap-2">
                     {selectedMovies.map(movie => (
                       <div 
@@ -242,54 +279,101 @@ export function MovieQuestionnaire() {
                   </div>
                 </div>
 
-                <Command className="rounded-lg border border-[#2A2A2A] bg-[#121212]">
-                  <CommandInput
-                    placeholder="Search for movies..."
-                    value={searchQuery}
-                    onValueChange={setSearchQuery}
-                    onFocus={() => setShowResults(true)}
-                    className="text-white"
-                  />
-                  {showResults && (
-                    <CommandList>
-                      <CommandEmpty className="text-gray-400">No results found.</CommandEmpty>
-                      {searchResults && (
-                        <CommandGroup>
-                          {searchResults.map((movie) => (
-                            <CommandItem
-                              key={movie.id}
-                              onSelect={() => {
-                                handleMovieSelect(movie);
-                                setSearchQuery('');
-                                setShowResults(false);
-                              }}
-                              className="flex items-center gap-2 cursor-pointer hover:bg-[#2A2A2A]"
-                            >
-                              {movie.poster_path && (
-                                <img
-                                  src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
-                                  alt={movie.title}
-                                  className="w-8 h-12 object-cover rounded"
-                                />
-                              )}
-                              <div>
-                                <div className="font-medium text-white">{movie.title}</div>
-                                <div className="text-sm text-gray-400">
-                                  {new Date(movie.release_date).getFullYear()}
-                                </div>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Command className="rounded-lg border border-[#2A2A2A] bg-[#121212]">
+                      <div className="flex items-center border-b border-[#2A2A2A] px-3">
+                        <Search className="mr-2 h-4 w-4 shrink-0 text-gray-400" />
+                        <CommandInput
+                          placeholder="Search for movies..."
+                          value={searchQuery}
+                          onValueChange={setSearchQuery}
+                          onFocus={() => setShowResults(true)}
+                          className="text-white flex h-10 w-full bg-transparent py-3 text-sm outline-none placeholder:text-gray-400"
+                        />
+                        {searchQuery && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSearchQuery('')}
+                            className="h-auto p-1 hover:bg-transparent"
+                          >
+                            <X className="h-4 w-4 text-gray-400" />
+                          </Button>
+                        )}
+                      </div>
+                      
+                      {searchQuery.length > 2 && showResults && (
+                        <CommandList className="max-h-[200px] overflow-y-auto p-1">
+                          {isLoading && (
+                            <div className="py-6 text-center text-sm text-gray-400">
+                              Searching movies...
+                            </div>
+                          )}
+                          
+                          <CommandEmpty className="py-6 text-center text-sm text-gray-400">
+                            No results found
+                          </CommandEmpty>
+                          
+                          {searchResults && searchResults.length > 0 && (
+                            <CommandGroup>
+                              {searchResults.map((movie) => (
+                                <CommandItem
+                                  key={movie.id}
+                                  onSelect={() => {
+                                    handleMovieSelect(movie);
+                                    setSearchQuery('');
+                                  }}
+                                  className="flex items-center gap-2 cursor-pointer hover:bg-[#2A2A2A] py-2"
+                                >
+                                  {movie.poster_path ? (
+                                    <img
+                                      src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
+                                      alt={movie.title}
+                                      className="w-8 h-12 object-cover rounded"
+                                    />
+                                  ) : (
+                                    <div className="w-8 h-12 bg-[#2A2A2A] rounded flex items-center justify-center">
+                                      <Film className="h-4 w-4 text-gray-400" />
+                                    </div>
+                                  )}
+                                  <div>
+                                    <div className="font-medium text-white">{movie.title}</div>
+                                    <div className="text-xs text-gray-400">
+                                      {movie.release_date ? new Date(movie.release_date).getFullYear() : ''}
+                                      {movie.director && ` • Dir: ${movie.director}`}
+                                    </div>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          )}
+                        </CommandList>
                       )}
-                    </CommandList>
-                  )}
-                </Command>
+                    </Command>
+                  </div>
+                  
+                  <p className="text-xs text-gray-400 px-1">
+                    Type at least 3 characters to search
+                  </p>
+                </div>
 
-                <div className="flex justify-end">
+                <div className="flex gap-3 justify-end pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowMovieSearch(false);
+                      handleAnswer('skip');
+                    }}
+                    className="border-[#2A2A2A] text-gray-300 hover:bg-[#2A2A2A] hover:text-white"
+                  >
+                    Skip
+                  </Button>
+                  
                   <Button
                     onClick={handleContinue}
                     className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
+                    disabled={selectedMovies.length === 0}
                   >
                     Continue
                   </Button>
@@ -314,13 +398,40 @@ export function MovieQuestionnaire() {
                       className="rounded-lg shadow-lg w-48"
                     />
                   )}
-                  <p className="text-sm text-gray-400 text-center mt-2">
+                  <div className="flex items-center space-x-2 text-xs text-gray-400">
+                    {recommendedMovie.release_date && (
+                      <span>{new Date(recommendedMovie.release_date).getFullYear()}</span>
+                    )}
+                    {recommendedMovie.vote_average > 0 && (
+                      <>
+                        <span>•</span>
+                        <span>⭐ {recommendedMovie.vote_average.toFixed(1)}/10</span>
+                      </>
+                    )}
+                    {recommendedMovie.director && (
+                      <>
+                        <span>•</span>
+                        <span>Dir: {recommendedMovie.director}</span>
+                      </>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-400 text-center mt-2 max-h-32 overflow-y-auto">
                     {recommendedMovie.overview}
                   </p>
                 </div>
-                <div className="flex justify-center pt-4">
-                  <Button onClick={resetQuestionnaire} className="bg-[#8B5CF6] hover:bg-[#7C3AED]">
+                <div className="flex justify-center gap-3 pt-4">
+                  <Button 
+                    onClick={resetQuestionnaire} 
+                    variant="outline"
+                    className="border-[#2A2A2A] text-gray-300 hover:bg-[#2A2A2A] hover:text-white"
+                  >
                     Try Again
+                  </Button>
+                  <Button 
+                    onClick={() => setOpen(false)}
+                    className="bg-[#8B5CF6] hover:bg-[#7C3AED]"
+                  >
+                    Done
                   </Button>
                 </div>
               </div>
