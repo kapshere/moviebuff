@@ -15,15 +15,30 @@ export function MultiMovieSearch({ onClose }: { onClose: () => void }) {
   const [selectedMovies, setSelectedMovies] = useState<Movie[]>([]);
   const [showResults, setShowResults] = useState(false);
 
+  // Add default empty arrays and error handling
   const { data: searchResults = [], isLoading } = useQuery({
     queryKey: ['movieSearch', searchQuery],
-    queryFn: () => searchMovies(searchQuery),
+    queryFn: async () => {
+      try {
+        return await searchMovies(searchQuery);
+      } catch (error) {
+        console.error('Search error:', error);
+        return [];
+      }
+    },
     enabled: searchQuery.length > 2,
   });
 
   const { data: recommendations = [], isLoading: isLoadingRecommendations } = useQuery({
     queryKey: ['hybridRecommendations', selectedMovies.map(m => m.id)],
-    queryFn: () => getHybridRecommendations(selectedMovies.map(m => m.id)),
+    queryFn: async () => {
+      try {
+        return await getHybridRecommendations(selectedMovies.map(m => m.id));
+      } catch (error) {
+        console.error('Recommendations error:', error);
+        return [];
+      }
+    },
     enabled: selectedMovies.length > 0,
   });
 
@@ -79,10 +94,10 @@ export function MultiMovieSearch({ onClose }: { onClose: () => void }) {
               onValueChange={setSearchQuery}
               onFocus={() => setShowResults(true)}
             />
-            {showResults && (
-              <CommandList>
+            {showResults && searchQuery.length > 2 && (
+              <CommandList className="max-h-[200px] overflow-y-auto">
                 <CommandEmpty>No results found.</CommandEmpty>
-                {searchResults && searchResults.length > 0 && (
+                {Array.isArray(searchResults) && searchResults.length > 0 && (
                   <CommandGroup>
                     {searchResults.map((movie) => (
                       <CommandItem
@@ -111,11 +126,16 @@ export function MultiMovieSearch({ onClose }: { onClose: () => void }) {
                     ))}
                   </CommandGroup>
                 )}
+                {isLoading && (
+                  <div className="py-6 text-center text-sm">
+                    Searching...
+                  </div>
+                )}
               </CommandList>
             )}
           </Command>
 
-          {selectedMovies.length > 0 && recommendations && recommendations.length > 0 && (
+          {selectedMovies.length > 0 && Array.isArray(recommendations) && recommendations.length > 0 && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Recommended Movies</h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -129,7 +149,7 @@ export function MultiMovieSearch({ onClose }: { onClose: () => void }) {
                       />
                     )}
                     <div className="text-sm font-medium">{movie.title}</div>
-                    {movie.matchReason && movie.matchReason.length > 0 && (
+                    {movie.matchReason && Array.isArray(movie.matchReason) && movie.matchReason.length > 0 && (
                       <div className="text-xs text-muted-foreground">
                         {movie.matchReason[0]}
                       </div>

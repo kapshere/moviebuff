@@ -86,7 +86,15 @@ export function MovieQuestionnaire() {
 
   const { data: searchResults = [], isLoading } = useQuery({
     queryKey: ['movieSearch', searchQuery],
-    queryFn: () => searchMovies(searchQuery),
+    queryFn: async () => {
+      try {
+        if (searchQuery.length <= 2) return [];
+        return await searchMovies(searchQuery);
+      } catch (error) {
+        console.error('Search error:', error);
+        return [];
+      }
+    },
     enabled: searchQuery.length > 2,
   });
 
@@ -165,7 +173,7 @@ export function MovieQuestionnaire() {
         weightCast: answers.complexity === 'simple' ? 0.7 : 1,
       });
 
-      if (recommendations && recommendations.length > 0) {
+      if (recommendations && Array.isArray(recommendations) && recommendations.length > 0) {
         setRecommendedMovie(recommendations[0]);
         toast.success("Found the perfect movie for you! 🎬");
       } else {
@@ -316,7 +324,7 @@ export function MovieQuestionnaire() {
                             No results found
                           </CommandEmpty>
                           
-                          {searchResults && searchResults.length > 0 && (
+                          {Array.isArray(searchResults) && searchResults.length > 0 && (
                             <CommandGroup>
                               {searchResults.map((movie) => (
                                 <CommandItem
